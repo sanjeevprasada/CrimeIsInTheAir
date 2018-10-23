@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV
 import multiprocessing
 import os
+from tqdm import tqdm
 
 ''' References: (1) https://stackoverflow.com/questions/24588437/convert-date-to-float-for-linear-regression-on-pandas-data-frame/24590666,
     (2) https://matplotlib.org/gallery/text_labels_and_annotations/date.html
@@ -25,6 +26,7 @@ class Pollution:
         self.best_alpha = 10
         self.cities = []
         self.city_directory = 'city_data/'
+        self.feature_names = ['NO2 AQI', 'O3 AQI', 'SO2 AQI', 'CO AQI']
 
     def process_data(self):
         dataset = pd.read_csv('pollution_clean.csv', index_col='Date Local', parse_dates=True)
@@ -113,14 +115,15 @@ class Pollution:
         model = KernelRidge(alpha=self.best_alpha, kernel='rbf', gamma=self.best_gamma)
         model.fit(days, city_feature)
 
-        last_day = days[-1]
-        x_unseen = np.linspace(last_day, last_day + self.num_days_predict, self.num_days_predict + 1)
+        last_day = days[-1] + 1
+        x_unseen = np.linspace(last_day, last_day + self.num_days_predict, self.num_days_predict)
         x_unseen = np.reshape(x_unseen.astype(int), newshape=(x_unseen.shape[0], 1))
+        x_unseen = x_unseen % 365
         y_unseen_pred = model.predict(x_unseen)
 
         return y_train_pred, y_test_pred, y_unseen_pred
 
-    def plot_data(self, train_prediction, test_prediction, future_prediction):
+    def plot_data(self, y_train_pred, y_test_pred, y_unseen_pred):
         city_data = self.data[self.city].values
         city_feature = city_data[:, self.feature]
 
@@ -129,6 +132,11 @@ class Pollution:
 
         days = ((dates_pd - dates_pd.min()) / np.timedelta64(1, 'D')).values
         days = np.reshape(days.astype(int), newshape=(days.shape[0], 1))
+
+        last_date = dates_pd.max()
+        last_date = last_date + pd.DateOffset(days=1)
+        extended_date = last_date + pd.DateOffset(days=self.num_days_predict - 1)
+        x_extended = pd.date_range(start=last_date, end=extended_date)
 
         train_index = int(0.8 * days.shape[0])
 
@@ -139,9 +147,9 @@ class Pollution:
         ax.plot(dates, city_feature, linewidth=1)
 
         # Plot prediction
-        ax.plot(dates[0:train_index], train_prediction, linewidth=1.5, color='r')
-        ax.plot(dates[train_index:], test_prediction, linewidth=1.5, color='orange')
-        #ax.plot(dates[train_index:], future_prediction, linewidth=1.5, color='y')
+        ax.plot(dates[0:train_index], y_train_pred, linewidth=1.5, color='yellow')
+        ax.plot(dates[train_index:], y_test_pred, linewidth=1.5, color='orange')
+        ax.plot(x_extended, y_unseen_pred, linewidth=1.5, color='red')
 
         years = mdates.YearLocator()   # every year
         months = mdates.MonthLocator()  # every month
@@ -174,6 +182,41 @@ class Pollution:
         file_path = '{}{}.csv'.format(self.city_directory, city.replace(' ', '_'))
         self.data[city] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
+    def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred):
+        dates_pd = self.data[self.city].index
+
+        last_date = dates_pd.max()
+        last_date = last_date + pd.DateOffset(days=1)
+        extended_date = last_date + pd.DateOffset(days=self.num_days_predict - 1)
+        x_extended = pd.date_range(start=last_date, end=extended_date)
+
+        y_pred = np.concatenate((y_train_pred, y_test_pred, y_unseen_pred), axis=0)
+        all_dates = dates_pd.append(x_extended).values
+
+        directory = 'forecast_data/'
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+
+        file_path = '{}{}_{}.csv'.format(directory, self.city, self.feature_names[self.feature].replace(' ', '_'))
+        with open(file_path, 'w') as file:
+            for index, row in enumerate(all_dates):
+                if index == all_dates.shape[0] - 1:
+                    file.write("{}, {}".format(row, y_pred[index]))
+                else:
+                    file.write("{}, {}\n".format(row, y_pred[index]))
+
+    def create_all_forecasts(self):
+        self.process_data()
+
+        features = [0, 1, 2, 3]
+        for c in tqdm(self.cities):
+            for f in features:
+                self.feature = f
+                self.city = c
+
+                y_train_pred, y_test_pred, y_unseen_pred = poll.predict()
+                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred)
+
 
 if __name__ == '__main__':
     city = 'Phoenix'
@@ -181,11 +224,13 @@ if __name__ == '__main__':
     num_days_predict = 365
 
     poll = Pollution(city, feature, num_days_predict)
+    poll.create_all_forecasts()
     #poll.process_data()
-    poll.load_city(city)
+    #poll.load_city(city)
 
-    poll.save_cities()
+    #poll.save_cities()
 
-    y_train_pred, y_test_pred, y_unseen_pred = poll.predict()
+    #y_train_pred, y_test_pred, y_unseen_pred = poll.predict()
 
     #poll.plot_data(y_train_pred, y_test_pred, y_unseen_pred)
+    #poll.save_forecast(y_train_pred, y_test_pred, y_unseen_pred)
