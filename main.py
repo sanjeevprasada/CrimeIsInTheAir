@@ -24,6 +24,7 @@ class Pollution:
         self.best_gamma = 0.001
         self.best_alpha = 10
         self.cities = []
+        self.city_directory = 'city_data/'
 
     def process_data(self):
         dataset = pd.read_csv('pollution_clean.csv', index_col='Date Local', parse_dates=True)
@@ -161,15 +162,17 @@ class Pollution:
         plt.savefig('test.png', dpi=500)
 
     def save_cities(self):
-        directory = 'city_data/'
-
-        if not os.path.exists(directory):
-            os.mkdir(directory)
+        if not os.path.exists(self.city_directory):
+            os.mkdir(self.city_directory)
 
         for c in self.cities:
-            file_path = '{}{}.csv'.format(directory, c.replace(' ', '_'))
+            file_path = '{}{}.csv'.format(self.city_directory, c.replace(' ', '_'))
             if not os.path.exists(file_path):
                 self.data[c].to_csv(file_path)
+
+    def load_city(self, city):
+        file_path = '{}{}.csv'.format(self.city_directory, city.replace(' ', '_'))
+        self.data[city] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
 
 if __name__ == '__main__':
@@ -178,9 +181,11 @@ if __name__ == '__main__':
     num_days_predict = 365
 
     poll = Pollution(city, feature, num_days_predict)
-    poll.process_data()
+    #poll.process_data()
+    poll.load_city(city)
+
     poll.save_cities()
 
     y_train_pred, y_test_pred, y_unseen_pred = poll.predict()
 
-    poll.plot_data(y_train_pred, y_test_pred, y_unseen_pred)
+    #poll.plot_data(y_train_pred, y_test_pred, y_unseen_pred)
