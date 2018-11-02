@@ -1,0 +1,231 @@
+<!-- Scott Freitas
+Assignment 2: Question 6
+
+References:
+1) https://bl.ocks.org/mbostock/4060606
+2) https://github.com/Caged/d3-tip
+-->
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>sfreitas3</title>
+
+		<style type="text/css">
+            .axis path,
+            .axis line {
+                fill: none;
+                stroke: black;
+                shape-rendering: crispEdges;
+            }
+            .counties {
+                fill: none;
+                stroke: #AEFF8A;
+            }
+            .states {
+                fill: none;
+                stroke: #fff;
+                stroke-linejoin: round;
+            }
+
+            .d3-tip {
+                line-height: 1;
+                font-weight: bold;
+                padding: 12px;
+                background: rgba(205, 205, 138, 0.8);
+                color: #fff;
+                border-radius: 2px;
+                pointer-events: none;
+            }
+
+            rect {
+  stroke: #aaa;
+  stroke-width: 1px;
+  fill: #eee;
+}
+        </style>
+
+	</head>
+<body>
+    <script src="../lib/d3.v3.min.js"></script>
+    <script src="../lib/d3-queue.v3.min.js"></script>
+    <script src="../lib/topojson.v1.min.js"></script>
+    <script src="../lib/d3.tip.v0.6.3.js"></script>
+
+    <div>
+        <svg id="map" style="width: 800px; height: 600px"></svg>
+    </div>
+
+    <button onclick="test()">Click me</button>
+
+    <script type="text/javascript">
+        var path = d3.geo.path();
+        var tip = d3.tip().attr('class', 'd3-tip').style("background-color", "#4e27d7");
+
+        var svg = d3.select("#map");
+
+        var color_range = [d3.rgb("#FFE3FC"), d3.rgb("#ffd1fb"), d3.rgb("#f6b5f9"), d3.rgb("#e59bf3"),  d3.rgb("#cf82ee"), d3.rgb("#b469e8"),
+            d3.rgb("#9652e2"),  d3.rgb('#733cdd'), d3.rgb('#4e27d7'), d3.rgb('#0005cc')];
+
+        var color_domain = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+        var color_scale = d3.scale.linear().domain(color_domain)
+            .range(color_range);
+
+
+
+        var pollution_maps = [];
+        var pollution_map = d3.map();
+        var date_map = d3.map();
+        var counties = [4013, 4019, 6013, 6025, 6029, 6037, 6059, 6065, 6067, 6071, 6073, 6075, 6083, 6087, 6095, 6111,
+            6001, 6019, 6023, 6085, 8001, 8031, 8057, 11001, 12095, 12057, 17031, 17163, 18097, 20107, 20191, 20209,
+            21019, 21059, 21067, 21101, 21111, 21145, 22033, 22051, 26163, 26081, 29189, 29510, 34007, 34013, 36005,
+            36103, 36101, 36055, 37067, 37119, 37183, 40021, 40071, 40115, 40143, 40001, 40109, 42003, 42007, 42011,
+            42013, 42017, 42021, 42069, 42071, 42073, 42091, 42095, 42101, 42125, 42129, 42133, 42049, 42043, 42079,
+            42001, 48113, 48141, 48201, 48309, 48029, 48453, 51059, 51510, 51087, 51650, 51161, 25025, 32003, 32031,
+            33011, 33015, 47075, 47121, 47009, 45019, 45079, 9009, 9001, 9003, 9005, 23003, 24005, 24033, 24023, 55079,
+            80002, 5119, 19153, 41051, 56041, 56021, 56037, 56013, 38017, 16001, 39009, 39103, 39035, 39061, 13089,
+            10003, 15003, 27003, 35001, 44007, 46099, 46127, 49035, 49013, 49047, 1073, 53033, 2090];
+
+        var current_date = "2000-01-01";
+        var current_feature = 0;
+        var q = d3.queue();
+        var q2 = d3.queue();
+        var dates
+        //var us = "empty";
+
+        // d3.json("us.json", function(data) {
+        //     us = data;
+        //     //any other functions that depend on data
+        // });
+
+
+        // q2.defer(d3.json, "us.json")
+        //     .await(setup);
+       // q2.await(setup);
+
+
+
+        var data = [];
+        var count = 0;
+
+        q.defer(d3.json, 'us.json');
+        for (var i = 0; i < counties.length; i++) {
+            var current_file = counties[i];
+            var current_file_name = current_file.toString() + ".csv";
+            q
+            .defer(d3.csv, current_file_name, function (d) {
+                pollution_map.set(d['Date Local'], [d.NO2_AQI, d.O3_AQI, d.SO2_AQI, d.CO_AQI])
+            });
+            pollution_maps.push({
+                key: current_file,
+                value: pollution_map
+            });
+        }
+        q.defer(d3.csv, 'dates.csv', function (d) {
+            date_map.set(d['Date Local'], [0])
+        });
+        q.await(time_lapse);
+
+
+        function wait(ms){
+            var start = new Date().getTime();
+            var end = start;
+            while(end < start + ms) {
+                end = new Date().getTime();
+            }
+        }
+
+        var us2;
+
+        function test() {
+
+            setInterval(function () {
+                current_date = dates[count];
+                create_map("", us2);
+            }, 100)
+        }
+
+        function time_lapse(error, us) {
+            us2 = us;
+            dates = Object.keys(date_map._);
+            create_map(error, us);
+            // var dates = Object.keys(date_map._);
+            // for (var i = 0; i < dates.length; i++) {
+            //     current_date = dates[i];
+            //
+            //     //setTimeout(create_map(error, us), 3000);
+            //     setInterval(create_map(error, us), 500);
+            //     document.getElementById('map').style.display = 'none';
+            //     document.getElementById('map').style.display = 'block';
+            //     wait(1000)
+            // }
+
+        }
+
+        function create_map(error, us) {
+            count += 1;
+            svg.append("g")
+                .attr("class", "counties")
+                .selectAll("path")
+                .data(topojson.feature(us, us.objects.counties).features)
+                .enter().append("path")
+                .attr("d", path);
+
+
+            svg.append("path")
+                .datum(topojson.mesh(us, us.objects.states, function(a, b) {
+                  return a !== b;
+                }))
+                .attr("class", "states")
+                .attr("d", path);
+
+            svg.call(tip);
+
+            svg.append("g")
+                .attr("class", "counties")
+                .selectAll("path")
+                .data(topojson.feature(us, us.objects.counties).features)
+                .enter().append("path")
+                .attr("fill", function(d) {
+                    var current_id = d.id;
+                    var pollution_list_id = -1;
+                    for (var i = 0; i < counties.length; i++) {
+                        var pollution_map = pollution_maps[i];
+                        var curent_pollution_map_id = pollution_map.key;
+                        if (curent_pollution_map_id === current_id) {
+                            pollution_list_id = i;
+                            break;
+                        }
+                    }
+
+                    if (pollution_list_id !== -1) {
+                        var pollution_map = pollution_maps[pollution_list_id];
+                        var info = pollution_map.value;
+                        var date_info = info._;
+                        if (typeof date_info !== 'undefined') {
+                            var date = date_info[current_date];
+                            if (typeof date !== 'undefined') {
+                                var feature_value = date[current_feature];
+                                var map_color = color_scale(feature_value);
+                                return map_color;
+                            }
+                        }
+                    }
+
+
+                    // d.current_date = pollution.get(d.id);
+                    // if (typeof d.percent_educated !== 'undefined') {
+                    //     d.NO2 = d.current_date[][2];
+                    //     var map_color = color_scale(d.percent_educated);
+                    //     return map_color;
+                    // }
+
+                })
+                .attr("d", path);
+        }
+
+    </script>
+
+</body>
