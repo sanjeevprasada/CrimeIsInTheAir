@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script Type="text/javascript" src="../lib/d3.v3.min.js"></script>
+<script src="../lib/d3.tip.v0.6.3.js"></script>
+<script src="../lib/d3-queue.v3.min.js"></script>
+<script src="../lib/topojson.v1.min.js"></script>
+<style type="text/css">
+text {
+	fill: #000;
+	font: 18px sans-serif;
+	font-weight: bold;
+	pointer-events: none;
+}
+.state {
+	fill: none;
+	stroke: white;
+	stroke-linejoin: round;
+}
+.legend text {
+	fill: #000;
+	font: 12px sans-serif;
+	pointer-events: none;
+}
+.tooltip {
+	position: absolute;           
+    background:rgba(0,0,0,0.8);
+    text-align: left;
+    border:1px;
+    border-radius:1px;
+    font: 12px sans-serif;        
+    width:auto;
+    padding:4px;
+    color:white;
+    opacity:.6;
+    pointer-events: none;       
+}
+.county {
+	fill: none;
+	stroke: #c0c0c0;
+	stroke-width: .2;
+	stroke-linejoin: round;
+}
+.label {
+	font: 13px sans-serif;
+	font-weight: bold;
+}
+</style>
+<body> 
+<div id="title"></div>
+<div id="choropleth"></div>
+<script>
+
+var mleft = 40,
+	w = 1100 - mleft,
+    h = 700;
+
+var colorScale = d3.scale.threshold()
+	.domain([25, 50, 75, 100, 125, 150, 175, 200, 225, 250])
+	.range(['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000']);
+
+var m = d3.map();
+var cname = d3.map();
+var states = d3.map();
+var q = d3.queue();	
+var path = d3.geo.path();
+
+var tip = d3.tip()
+	.attr("class", "tooltip")
+	.offset([-10, 0])
+	.html(function(d) {
+	d.name = cname.get(d.id);
+	d.O3_AQI = m.get(d.id);
+	d.State = states.get(d.id);
+	return "<strong>County: </strong>" + d.name + ", " + d.State + "<br/>" 
+	+ "<strong>Ozone AQI: </strong>" + d.O3_AQI;
+	})
+	
+var svg = d3.select("#choropleth").append("svg")
+    .attr("width", w + mleft)
+    .attr("height", h)
+	.attr("transform", "translate(" + mleft + "," + 0 + ")");
+
+svg.call(tip);
+
+var titlesvg = d3.select("#title").append("svg")
+    .attr("width", w)
+    .attr("height", 80)
+	titlesvg.append("text")
+		.attr("class", "title")
+		.attr("x", (w/2) - 20)
+		.attr("y", 30)
+		.attr("text-anchor", "middle")
+		.text("Ozone Pollution");
+
+q.defer(d3.json, "us.json")
+	.defer(d3.csv, "O3_countydata_filled.csv", function(d) {
+	m.set(+d.id, +d.O3_AQI);})
+	.defer(d3.csv, "id_state_countyname.csv", function(d) {
+	cname.set(+d.id, d.name);})
+	.defer(d3.csv, "id_state_countyname.csv", function(d) {
+	states.set(+d.id, d.State);})
+    .await(drawmap);
+			
+function drawmap(error, us, education) {
+	if (error) throw error;
+
+	svg.append("g")
+		.attr("class", "county")
+		.selectAll("path")
+		.data(topojson.feature(us, us.objects.counties).features)
+		.enter().append("path")
+		.attr("d", path)
+		.attr("fill", function(d) {
+			d.O3_AQI = m.get(d.id)
+			return (d.O3_AQI ? (colorScale(d.O3_AQI)) : '#ededed');})
+		.on("mouseover", mouseover)
+		.on("mouseout", mouseout);
+	
+	/*svg.append("g")
+		.attr("class", "state")
+		.selectAll("path")
+		.data(topojson.feature(us, us.objects.states).features)
+		.enter().append("path")
+		.attr("d", path)
+		.attr("fill", function(d) {
+			d.O3_AQI = m2.get(d.id)
+			return (d.O3_AQI ? (colorScale(d.O3_AQI)) : '#ededed');});*/
+
+	svg.append("path")
+		.datum(topojson.mesh(us, us.objects.states, 
+			function(x, y) { 
+				return (x.id !== y.id); }
+			))
+		.attr("class", "state")
+		.attr("d", path);
+		
+	svg.append("text")
+		.attr("class", "label")
+		.attr("transform", "translate(" + (920) + "," + (115) + ")")
+		.attr("dy", "1.5em")
+		.style("text-anchor", "end")
+		.text("O3 AQI");
+}
+
+var legendDomain =
+		colorScale.range().map(function(d) {
+		var r = (colorScale.invertExtent(d));
+		return r[0]; });
+	
+legendDomain[0]=0;
+
+var colors = ['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000'];
+
+var legend = svg.selectAll(".legend")
+		.data(legendDomain)
+		.enter().append("g")
+        .attr("class", "legend")
+		.attr("transform", "translate(" + 880 + "," + 150 + ")");
+
+    legend.append("rect")
+        .attr("x", 0)
+        .attr("y", function(d, i) { return 23 * i; }) 
+        .attr("width", 30)
+        .attr("height", 23)
+        .style("fill", function(d) { return colorScale(d); });
+
+	legend.append("text")
+		.text(function(d, i) { return ((legendDomain[i])); })
+        .attr("x", 25)
+        .attr("y", function(d, i) { return ((23 * i) + 10); })
+		.style("text-anchor", "start")
+		.attr("dx", "1em")
+		.attr("dy", ".2em");	
+
+function mouseover(d) {
+	tip.show(d);
+	d3.selectAll(".tooltip").style("opacity", .8);
+	d3.select(this).style("opacity", .3);
+	//d3.select(this).style("fill", "#4b0082")	
+}
+
+function mouseout(d) {
+	tip.hide(d);
+	d3.select(this).style("opacity", 1);
+	/*d3.select(this).style("fill", function(d) {
+			d.O3_AQI = m.get(d.id)
+			return colorScale(d.O3_AQI);})*/	
+}
+
+</script>
+</body>
+</html>
