@@ -68,17 +68,18 @@ References:
         var color_range = [d3.rgb("#FFE3FC"), d3.rgb("#ffd1fb"), d3.rgb("#f6b5f9"), d3.rgb("#e59bf3"),  d3.rgb("#cf82ee"), d3.rgb("#b469e8"),
             d3.rgb("#9652e2"),  d3.rgb('#733cdd'), d3.rgb('#4e27d7'), d3.rgb('#0005cc')];
 
-        var color_domain = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+        var color_domain = [0, 30, 40, 50, 60, 70, 80, 90, 200];
 
         var color_scale = d3.scale.linear().domain(color_domain)
             .range(color_range);
 
 
 
+        var pollution_maps_temp = [];
         var pollution_maps = [];
         var pollution_map = d3.map();
         var date_map = d3.map();
-        var counties = [4013, 4019, 6013, 6025, 6029, 6037, 6059, 6065, 6067, 6071, 6073, 6075, 6083, 6087, 6095, 6111,
+        var counties = [4019, 6013, 6025, 6029, 6037, 6059, 6065, 6067, 6071, 6073, 6075, 6083, 6087, 6095, 6111,
             6001, 6019, 6023, 6085, 8001, 8031, 8057, 11001, 12095, 12057, 17031, 17163, 18097, 20107, 20191, 20209,
             21019, 21059, 21067, 21101, 21111, 21145, 22033, 22051, 26163, 26081, 29189, 29510, 34007, 34013, 36005,
             36103, 36101, 36055, 37067, 37119, 37183, 40021, 40071, 40115, 40143, 40001, 40109, 42003, 42007, 42011,
@@ -111,22 +112,26 @@ References:
         var count = 0;
 
         q.defer(d3.json, 'us.json');
-        for (var i = 0; i < counties.length; i++) {
-            var current_file = counties[i];
+        counties.forEach(function (current_file, index) {
             var current_file_name = current_file.toString() + ".csv";
-            q
-            .defer(d3.csv, current_file_name, function (d) {
-                pollution_map.set(d['Date Local'], [d.NO2_AQI, d.O3_AQI, d.SO2_AQI, d.CO_AQI])
+
+            pollution_maps_temp.push(d3.map());
+            q.defer(d3.csv, current_file_name, function (d) {
+                pollution_maps_temp[index].set(d['Date Local'], [d.NO2_AQI, d.O3_AQI, d.SO2_AQI, d.CO_AQI])
             });
+
             pollution_maps.push({
                 key: current_file,
-                value: pollution_map
+                value: pollution_maps_temp[index]
             });
-        }
+        });
+
         q.defer(d3.csv, 'dates.csv', function (d) {
             date_map.set(d['Date Local'], [0])
         });
         q.await(time_lapse);
+
+
 
 
         function wait(ms){
@@ -144,7 +149,7 @@ References:
             setInterval(function () {
                 current_date = dates[count];
                 create_map("", us2);
-            }, 100)
+            }, 10)
         }
 
         function time_lapse(error, us) {
