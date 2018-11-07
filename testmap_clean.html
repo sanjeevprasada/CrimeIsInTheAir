@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+<title>Geography of Jobs</title>
+<style type="text/css">
+html,
+body {
+  margin: 0;
+  font: 14px/16px "Helvetica Neue", Helvetica, Arial, sans-serif
+}
+
+#container {
+  min-width: 960px
+}
+
+.land {
+  fill: #f7f7f7;
+  stroke: #ccc
+}
+
+.state-boundary {
+  fill: none;
+  stroke: #bbb
+}
+
+circle {
+  fill: none;
+  stroke: #999
+}
+
+circle.gain {
+  fill: #67a9cf;
+  stroke: #fff
+}
+
+circle.loss {
+  fill: #ef8a62;
+  stroke: #fff
+}
+
+#map circle {
+  opacity: 0.65
+}
+
+#map circle:hover {
+  stroke: black;
+  stroke-width: 2
+}
+
+#map-container {
+  margin: auto
+}
+
+#date,
+#play,
+#slider-container {
+  display: inline-block;
+  vertical-align: middle;
+  margin-top: 20px
+}
+
+#date {
+  border-left: 5px solid #ccc;
+  padding: 3px 0 3px 10px;
+  margin-left: 60px;
+  color: #333
+}
+
+#date p {
+  margin: 0
+}
+
+#date p:first-child {
+  color: #999;
+  font-size: 11px;
+  line-height: 13px
+}
+
+#date p#month {
+  font-size: 30px;
+  line-height: 30px
+}
+
+#date p#month span {
+  float: left;
+  width: 2.55em
+}
+
+#play {
+  width: 53px;
+  height: 53px;
+  background-image: url(../images/play.png);
+  border-radius: 5px;
+  margin-left: 20px;
+  cursor: pointer
+}
+
+#play:hover {
+  background-position: 0 -53px
+}
+
+#play.pause {
+  background-image: url(../images/pause.png)
+}
+
+#slider-container {
+  position: relative
+}
+
+#slider-div {
+  margin-left: 65px;
+  margin-top: 10px
+}
+
+#slider-probe {
+  position: absolute;
+  top: -20px;
+  font-size: 12px;
+  width: 70px;
+  margin-left: -35px;
+  z-index: 50;
+  display: none
+}
+
+#slider-probe p {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  height: 15px
+}
+
+#slider-probe div {
+  height: 15px;
+  margin-left: 35px;
+  border-left: 1px solid #999
+}
+
+#axis path {
+  fill: none
+}
+
+#axis .tick line {
+  stroke: #999
+}
+
+#axis .tick text {
+  font-size: 12px
+}
+
+#probe {
+  position: absolute;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 5px;
+  display: none;
+  font-size: 12px;
+  -webkit-box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.25);
+  -moz-box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.25);
+  box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.25)
+}
+
+#probe strong {
+  font-size: 16px
+}
+
+#probe span {
+  color: #999
+}
+
+#legend text {
+  font-size: 12px
+}
+
+svg text {
+  fill: #666
+}
+
+h1,
+h2,
+#intro {
+  text-align: center;
+  font-weight: normal
+}
+
+h1 {
+  font-size: 30px;
+  margin: 20px;
+  color: #1a1a1a
+}
+
+h2 {
+  font-size: 18px;
+  color: #999;
+  margin: 15px
+}
+
+#intro {
+  width: 800px;
+  margin: auto;
+  font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-variant: normal;
+  font-weight: normal;
+  line-height: 18px
+}
+
+#source {
+  color: #999;
+  font-size: 12px;
+  margin-left: 60px;
+  margin-top: 20px
+}
+
+#axis-maps {
+  float: right;
+  margin-top: 20px;
+  margin-right: 20px;
+  border: none
+}
+
+#loader {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.75) url(../images/ajax-loader.gif) no-repeat center center;
+  position: absolute;
+  z-index: 500
+}
+
+.d3-slider {
+  position: relative;
+  font-family: Verdana, Arial, sans-serif;
+  font-size: 1.1em;
+  z-index: 2;
+  background-color: #f7f7f7;
+  box-shadow: 0px 2px 2px #ddd inset;
+  border: 1px solid #ccc
+}
+
+.d3-slider-horizontal {
+  height: 0.8em
+}
+
+.d3-slider-range {
+  background: #2980b9;
+  left: 0px;
+  right: 0px;
+  height: 0.8em;
+  position: absolute
+}
+
+.d3-slider-range-vertical {
+  background: #2980b9;
+  left: 0px;
+  right: 0px;
+  position: absolute;
+  top: 0
+}
+
+.d3-slider-vertical {
+  width: 0.8em;
+  height: 100px
+}
+
+.d3-slider-handle {
+  position: absolute;
+  width: 0.1em;
+  height: 0.8em;
+  border: 0.5em solid #999;
+  border-radius: 4px;
+  background: #eee;
+  background: linear-gradient(to bottom, #eee 0%, #ddd 100%);
+  z-index: 3;
+  cursor: pointer
+}
+
+.d3-slider-handle:hover {
+  border: 0.5em solid #666
+}
+
+.d3-slider-horizontal .d3-slider-handle {
+  top: -0.5em;
+  margin-left: -0.4em
+}
+
+.d3-slider-axis {
+  position: relative;
+  z-index: 1
+}
+
+.d3-slider-axis-bottom {
+  top: 0.8em
+}
+
+.d3-slider-axis-right {
+  left: 0.8em
+}
+
+.d3-slider-axis path {
+  stroke-width: 0;
+  fill: none
+}
+
+.d3-slider-axis line {
+  fill: none;
+  stroke: #aaa;
+  shape-rendering: crispEdges
+}
+
+.d3-slider-axis text {
+  font-size: 11px
+}
+
+.d3-slider-vertical .d3-slider-handle {
+  left: -0.25em;
+  margin-left: 0;
+  margin-bottom: -0.6em
+}
+</style>
+<body>
+   <div id=container>
+      <h1>Geography of Jobs</h1>
+      <h2>Net Job Gains / Losses by Metropolitan Statistical Area</h2>
+      <p id=intro>The Geography of Jobs map is a dynamic visualization of job gains and losses over the last 15+ years for every metro area in the U.S. The red and blue bubbles represent a rolling 12-month net change in total employment for each metro area. Simply press Play and watch the animation unfold.</p>
+      <div id=date>
+         <p>12 months ending on:</p>
+         <p id=month></p>
+      </div>
+      <div id=play></div>
+      <div id=slider-container>
+         <div id=slider-div></div>
+         <div id=slider-probe>
+            <p></p>
+            <div></div>
+         </div>
+      </div>
+      <div id=map-container></div>
+      <a href="http://axismaps.com" target=_blank id=axis-maps><img src="images/axismaps.png" alt="Axis Maps" title="Designed and built by Axis Maps"/></a>
+      <p id=source>Source: US Bureau of Labor Statistics, Current Employment Statistics and TIP Strategies</p>
+   </div>
+   <script Type="text/javascript" src="../lib/d3.v3.min.js"></script>
+   <script src="../lib/d3.tip.v0.6.3.js"></script>
+   <script src="../lib/d3-queue.v3.min.js"></script>
+   <script src="../lib/topojson.v1.min.js"></script>
+   <script src="../lib/d3-slider.js"></script>
+   <script>
+      var width=960,
+      height=600;                               
+      var projection=d3.geo.albersUsa().scale(1100).translate([width/2,height/2]);                               
+      var path=d3.geo.path().projection(projection);                               
+      var svg=d3.select("#map-container").append("svg").attr("width",width).attr("height",height);                               
+      var g=svg.append("g");                               
+      g.append("rect").attr("width",width).attr("height",height).attr("fill","white").attr("opacity",0)
+      	.on("mouseover",function()
+      		{hoverData=null;                               
+      		if(probe)probe.style("display","none");                               
+      		})
+      var map=g.append("g").attr("id","map");                               
+      var probe,hoverData;                               
+      var dateScale,sliderScale,slider;                               
+      var format=d3.format(",");                               
+      var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+      	months_full=["January","February","March","April","May","June","July","August","September","October","November","December"],
+      	orderedColumns=[],
+      	currentFrame=0,
+      	interval,
+      	frameLength=500,
+      	isPlaying=false;                               
+      var sliderMargin=65;                               
+      function circleSize(d){
+      	return Math.sqrt(.02*Math.abs(d));                               
+      	};                               
+      
+      d3.json("json/states.json",function(error,us){
+      	map.selectAll("path").data(topojson.feature(us,us.objects.states).features)
+      	.enter().append("path").attr("vector-effect","non-scaling-stroke")
+      	.attr("class","land").attr("d",path);                               
+      	
+      	map.append("path")
+      	.datum(topojson.mesh(us,us.objects.states,function(a,b){
+      	return a!==b;                               
+      	}))
+      	.attr("class","state-boundary")
+      	.attr("vector-effect","non-scaling-stroke")
+      	.attr("d",path);                               
+      	
+      	probe=d3.select("#map-container").append("div").attr("id","probe");                               
+      	
+      	d3.select("body")
+      	.append("div")
+      	.attr("id","loader")
+      	.style("top",d3.select("#play").node().offsetTop+"px")
+      	.style("height",d3.select("#date")
+      	.node().offsetHeight+d3.select("#map-container")
+      	.node().offsetHeight+"px")
+      
+      	d3.csv("csv/jobs.csv",function(data){var first=data[0];                               
+      	for(var mug in first)
+      		{if(mug!="CITY"&&mug!="LAT"&&mug!="LON")
+      			{orderedColumns.push(mug);                               
+      			}}
+      			
+      		orderedColumns.sort(sortColumns);                               
+      		for(var i in data){var projected=projection([parseFloat(data[i].LON),parseFloat(data[i].LAT)])
+      
+      	map.append("circle").datum(data[i]).attr("cx",projected[0]).attr("cy",projected[1]).attr("r",1)
+      	.attr("vector-effect","non-scaling-stroke").on("mousemove",function(d){hoverData=d;                               
+      	setProbeContent(d);                               
+      	probe.style({"display":"block","top":(d3.event.pageY-80)+"px","left":(d3.event.pageX+10)+"px"})})
+      	.on("mouseout",function(){hoverData=null;                               
+      	probe.style("display","none");                              
+      	})}
+      
+      	createLegend();                               
+      	
+      	dateScale=createDateScale(orderedColumns).range([0,500]);                               
+      	createSlider();                               
+      	d3.select("#play").attr("title","Play animation")
+      	.on("click",function(){if(!isPlaying){isPlaying=true;                               
+      	d3.select(this).classed("pause",true).attr("title","Pause animation");                               
+      	animate();                               
+      	}else{isPlaying=false;                               
+      	d3.select(this).classed("pause",false).attr("title","Play animation");                               
+      	clearInterval(interval);                               
+      	}});                               
+      	drawMonth(orderedColumns[currentFrame]);                               
+      	window.onresize=resize;                               
+      	resize();                               
+      	d3.select("#loader").remove();                               
+      	})});                               
+      	function drawMonth(m,tween){var circle=map.selectAll("circle").sort(function(a,b){if(isNaN(a[m]))a[m]=0;                               
+      	if(isNaN(b[m]))b[m]=0;                               
+      	return Math.abs(b[m])-Math.abs(a[m]);                               
+      	}).attr("class",function(d){return d[m]>0?"gain":"loss";                               
+      	})
+      
+      	if(tween){circle.transition().ease("linear").duration(frameLength).attr("r",function(d){return circleSize(d[m])});                               
+      	}else{circle.attr("r",function(d){return circleSize(d[m])});                               }
+      
+      	d3.select("#date p#month").html(monthLabel(m));                               
+      	if(hoverData){setProbeContent(hoverData);                               
+      	}}
+      
+      	function animate(){interval=setInterval(function(){currentFrame++;                               
+      	if(currentFrame==orderedColumns.length)currentFrame=0;                               
+      	d3.select("#slider-div .d3-slider-handle").style("left",100*currentFrame/orderedColumns.length+"%");                               
+      	slider.value(currentFrame)
+      
+      	drawMonth(orderedColumns[currentFrame],true);                               
+      	if(currentFrame==orderedColumns.length-1){isPlaying=false;                               
+      	d3.select("#play").classed("pause",false).attr("title","Play animation");                               
+      	clearInterval(interval);                               
+      	return;                              
+      	}},frameLength);                              
+      	}
+      function createSlider()
+      {sliderScale=d3.scale.linear().domain([0,orderedColumns.length-1]);                             
+        var val=slider?slider.value():0;                               
+        slider=d3.slider().scale(sliderScale).on("slide",function(event,value){if(isPlaying){clearInterval(interval);                              
+        }
+      currentFrame=value;                               
+      drawMonth(orderedColumns[value],d3.event.type!="drag");                              
+       }).on("slideend",function(){if(isPlaying)animate();                             
+       d3.select("#slider-div").on("mousemove",sliderProbe)}).on("slidestart",function(){d3.select("#slider-div").on("mousemove",null)}).value(val);                             
+       d3.select("#slider-div").remove();                             
+       d3.select("#slider-container").append("div").attr("id","slider-div")
+       .style("width",dateScale.range()[1]+"px").on("mousemove",sliderProbe)
+       .on("mouseout",function(){d3.select("#slider-probe").style("display","none");                              
+       }).call(slider);                               
+       d3.select("#slider-div a").on("mousemove",function(){d3.event.stopPropagation();                             
+       })
+      var sliderAxis=d3.svg.axis().scale(dateScale).tickValues(dateScale.ticks(orderedColumns.length)
+      .filter(function(d,i){return d.getMonth()==0||i==0||i==orderedColumns.length-1;                             
+        })).tickFormat(function(d){if(d.getMonth()==0)return"'"+d.getFullYear().toString().substr(2);                             
+        return months[d.getMonth()]+" "+d.getFullYear();                            
+        }).tickSize(10)
+      d3.select("#axis").remove();                             
+        d3.select("#slider-container").append("svg").attr("id","axis")
+        .attr("width",dateScale.range()[1]+sliderMargin*2).attr("height",25)
+        .append("g").attr("transform","translate("+(sliderMargin+1)+",0)").call(sliderAxis);                         
+        d3.select("#axis > g g:first-child text").attr("text-anchor","end").style("text-anchor","end");                            
+        d3.select("#axis > g g:last-of-type text").attr("text-anchor","start").style("text-anchor","start");                              
+        }
+      function createLegend(){var legend=g.append("g").attr("id","legend").attr("transform","translate(560,10)");                              
+       legend.append("circle").attr("class","gain").attr("r",5).attr("cx",5).attr("cy",10)
+      legend.append("circle").attr("class","loss").attr("r",5).attr("cx",5).attr("cy",30)
+      legend.append("text").text("jobs gained").attr("x",15).attr("y",13);                              
+       legend.append("text").text("jobs lost").attr("x",15).attr("y",33);                               
+       var sizes=[10000,100000,250000];                            
+       for(var i in sizes){legend.append("circle").attr("r",circleSize(sizes[i])).attr("cx",80+circleSize(sizes[sizes.length-1]))
+       .attr("cy",2*circleSize(sizes[sizes.length-1])-circleSize(sizes[i])).attr("vector-effect","non-scaling-stroke");                             
+       legend.append("text").text((sizes[i]/1000)+"K"+(i==sizes.length-1?" jobs":"")).attr("text-anchor","middle")
+       .attr("x",80+circleSize(sizes[sizes.length-1])).attr("y",2*(circleSize(sizes[sizes.length-1])-circleSize(sizes[i]))+5).attr("dy",13)}}
+      function setProbeContent(d){var val=d[orderedColumns[currentFrame]],m_y=getMonthYear(orderedColumns[currentFrame]),month=months_full[months.indexOf(m_y[0])];                              
+       var html="<strong>"+d.CITY+"</strong><br/>"+format(Math.abs(val))+" jobs "+(val<0?"lost":"gained")+"<br/>"+"<span>"+month+" "+m_y[1]+"</span>";                               
+       probe.html(html);                               }
+      function sliderProbe(){var d=dateScale.invert((d3.mouse(this)[0]));                           
+          d3.select("#slider-probe").style("left",d3.mouse(this)[0]+sliderMargin+"px")
+      	.style("display","block").select("p").html(months[d.getMonth()]+" "+d.getFullYear())}
+      function resize(){var w=d3.select("#container").node().offsetWidth,h=window.innerHeight-80;                               
+      var scale=Math.max(1,Math.min(w/width,h/height));                              
+       svg.attr("width",width*scale).attr("height",height*scale);                               
+       g.attr("transform","scale("+scale+","+scale+")");                           
+       d3.select("#map-container").style("width",width*scale+"px");                             
+       dateScale.range([0,500+w-width]);                             
+       createSlider();                               }
+      function sortColumns(a,b){var monthA=a.split("-"),monthB=b.split("-");                             
+        if(monthA[1]<90)monthA[1]=parseInt(monthA[1])+11;                              
+        else monthA[1]=parseInt(monthA[1])-90;                             
+        if(monthB[1]<90)monthB[1]=parseInt(monthB[1])+11;                             
+        else monthB[1]=parseInt(monthB[1])-90;                              
+        return(100*parseInt(monthA[1])+months.indexOf(monthA[0]))-(100*parseInt(monthB[1])+months.indexOf(monthB[0]));                      
+        }
+      function createDateScale(columns){var start=getMonthYear(columns[0]),end=getMonthYear(columns[columns.length-1]);                
+                     return d3.time.scale().domain([new Date(start[1],months.indexOf(start[0])),new Date(end[1],months.indexOf(end[0]))]);                              
+      			   }
+      function getMonthYear(column){var m_y=column.split("-");                          
+           var year=parseInt(m_y[1]);                             
+      	 if(year>90)year+=1900;                               
+      	 else year+=2000;                             
+      	 return[m_y[0],year];                               
+      	 }
+      function monthLabel(m){var m_y=getMonthYear(m);                            
+         return"<span>"+m_y[0].toUpperCase()+"</span> "+m_y[1];                               
+         }
+   </script>
+</body>
+</html>

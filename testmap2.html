@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Pollution Visualization </title>
+
+<script Type="text/javascript" src="../lib/d3.v3.min.js"></script>
+<script src="../lib/d3.tip.v0.6.3.js"></script>
+<script src="../lib/d3-queue.v3.min.js"></script>
+<script src="../lib/topojson.v1.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+<style type="text/css">
+text {
+	fill: #000;
+	font: 18px sans-serif;
+	font-weight: bold;
+	pointer-events: none;
+}
+.state {
+	fill: none;
+	stroke: white;
+	stroke-linejoin: round;
+}
+.legend text {
+	fill: #000;
+	font: 12px sans-serif;
+	pointer-events: none;
+}
+.tooltip {
+	position: absolute;           
+    background:rgba(0,0,0,0.8);
+    text-align: left;
+    border:1px;
+    border-radius:1px;
+    font: 12px sans-serif;        
+    width:auto;
+    padding:4px;
+    color:white;
+    opacity:.6;
+    pointer-events: none;       
+}
+.county {
+	fill: none;
+	stroke: #c0c0c0;
+	stroke-width: .2;
+	stroke-linejoin: round;
+}
+.label {
+	font: 13px sans-serif;
+	font-weight: bold;
+}
+
+</style>
+<body> 
+
+<input id="slider" type="range" min="2000" max="2016" value="2000" step="1" />
+	
+	<span id="range">2000</span>
+
+	<button name="play" id="play">Play</button>
+<div id="dropdown">    <label>Select Pollutant: </label>
+</div>
+<div id="title"></div>
+<div id="choropleth"></div>
+<script type="text/javascript">
+
+$(document).ready(function()	{
+
+var mleft = 40,
+	w = 1100 - mleft,
+    h = 700;
+
+var pollutants = ['NO2', 'O3', 'SO2', 'CO'];
+var years = ['2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', 
+	'2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016'];
+var yrrange = [['2000-01-01','2001-01-01'],
+	['2001-01-01','2002-01-01'],
+	['2002-01-01','2003-01-01'],
+	['2003-01-01','2004-01-01'],
+	['2004-01-01','2005-01-01'],
+	['2005-01-01','2006-01-01'],
+	['2006-01-01','2007-01-01'],
+	['2007-01-01','2008-01-01'],
+	['2008-01-01','2009-01-01'],
+	['2009-01-01','2010-01-01'],
+	['2010-01-01','2011-01-01'],
+	['2011-01-01','2012-01-01'],
+	['2012-01-01','2013-01-01'],
+	['2013-01-01','2014-01-01'],
+	['2014-01-01','2015-01-01'],
+	['2015-01-01','2016-01-01'],
+	['2016-01-01','2017-01-01']];
+
+
+var pollution_maps_temp = [];
+var path = d3.geo.path();
+var pollution_maps = [];
+var pollution_map = d3.map();
+var date_map = d3.map();
+var counties = [4013, 4019, 6013, 6025, 6029, 6037, 6059, 6065, 6067, 6071, 6073, 6075, 6083, 6087, 6095, 6111,
+    6001, 6019, 6023, 6085, 8001, 8031, 8057, 11001, 12095, 12057, 17031, 17163, 18097, 20107, 20191, 20209,
+    21019, 21059, 21067, 21101, 21111, 21145, 22033, 22051, 26163, 26081, 29189, 29510, 34007, 34013, 36005,
+    36103, 36101, 36055, 37067, 37119, 37183, 40021, 40071, 40115, 40143, 40001, 40109, 42003, 42007, 42011,
+    42013, 42017, 42021, 42069, 42071, 42073, 42091, 42095, 42101, 42125, 42129, 42133, 42049, 42043, 42079,
+    42001, 48113, 48141, 48201, 48309, 48029, 48453, 51059, 51510, 51087, 51650, 51161, 25025, 32003, 32031,
+    33011, 33015, 47075, 47121, 47009, 45019, 45079, 9009, 9001, 9003, 9005, 23003, 24005, 24033, 24023, 55079,
+    80002, 5119, 19153, 41051, 56041, 56021, 56037, 56013, 38017, 16001, 39009, 39103, 39035, 39061, 13089,
+    10003, 15003, 27003, 35001, 44007, 46099, 46127, 49035, 49013, 49047, 1073, 53033, 2090];
+
+var current_date = "2000-01-01";
+var end_date = "2017-01-01";
+var current_feature = 0;
+var current_window = 0;
+var q = d3.queue();
+var q2 = d3.queue();
+var dates;
+var cname = d3.map();
+var states = d3.map();
+
+//d3.select('#slider').call(d3.slider().axis(true).min(2000).max(2016).step(1));
+
+	
+var tip = d3.tip()
+	.attr("class", "tooltip")
+	.offset([-10, 0])
+	.html(function(d) {
+		var feature_value = "";
+	    var current_id = d.id;
+        var pollution_list_id = -1;
+        for (var i = 0; i < counties.length; i++) {
+            var pollution_map = pollution_maps[i];
+            var curent_pollution_map_id = pollution_map.key;
+            if (curent_pollution_map_id === current_id) {
+                pollution_list_id = i;
+                break;
+            }
+        }
+
+        if (pollution_list_id !== -1) {
+            var pollution_map = pollution_maps[pollution_list_id];
+            var info = pollution_map.value;
+            var date_info = info._;
+            if (typeof date_info !== 'undefined') {
+                var date = date_info[current_date];
+                if (typeof date !== 'undefined') {
+                    var feature_value = date[current_feature];
+                }
+            }
+        }
+	d.name = cname.get(d.id);
+	d.State = states.get(d.id);
+	return "<strong>County: </strong>" + d.name + ", " + d.State + "<br/>" 
+	+ pollutants[current_feature] + " AQI: " + feature_value + "<br/>"
+	+ "Date: " + current_date;
+	})
+		
+var colorScale = d3.scale.threshold()
+	.domain([10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,250])
+	.range(['#98fb98','#a6fc8e','#b2fc85','#c0fd78','#c7fd71','#d4fd63','#dbfe5b','#e6fe4c','#f0fe38','#f6ff2d','#ffff00',
+		'#ffed00','#ffd800','#ffc500','#ffb100','#ff9b00','#ff8400','#ff6a00','#ff4900','#ff0000']);
+	//.range(['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000']);
+	
+		
+var svg = d3.select("#choropleth").append("svg")
+    .attr("width", w + mleft)
+    .attr("height", h)
+	.attr("transform", "translate(" + mleft + "," + 0 + ")");
+
+svg.call(tip);
+
+
+var titlesvg = d3.select("#title").append("svg")
+    .attr("width", w)
+    .attr("height", 80)
+	titlesvg.append("text")
+		.attr("class", "title")
+		.attr("x", (w/2) - 20)
+		.attr("y", 30)
+		.attr("text-anchor", "middle")
+		.text("Pollution");
+
+var data = [];
+var count = 0;
+
+q.defer(d3.json, 'us.json');
+counties.forEach(function (current_file, index) {
+    var current_file_name = current_file.toString() + ".csv";
+    pollution_maps_temp.push(d3.map());
+    q.defer(d3.csv, current_file_name, function (d) {
+        pollution_maps_temp[index].set(d['Date Local'], [d.NO2_AQI, d.O3_AQI, d.SO2_AQI, d.CO_AQI])
+    });
+    pollution_maps.push({
+        key: current_file,
+        value: pollution_maps_temp[index]
+    });
+});
+q.defer(d3.csv, 'dates.csv', function (d) {
+    date_map.set(d['Date Local'], [0])
+    });
+q.defer(d3.csv, "id_state_countyname.csv", function(d) {
+	cname.set(+d.id, d.name);})
+q.defer(d3.csv, "id_state_countyname.csv", function(d) {
+	states.set(+d.id, d.State);})
+q.await(time_lapse);
+
+function wait(ms){
+    var start = new Date().getTime();
+    var end = start;
+    while(end < start + ms) {
+        end = new Date().getTime();
+    }
+}
+
+var us2;
+
+function test() {
+    setInterval(function () {
+        current_date = dates[count)];
+			create_map("", us2);
+    }, .1)
+}
+
+function time_lapse(error, us) {
+    us2 = us;
+    dates = Object.keys(date_map._);
+    create_map(error, us);
+}
+		
+function create_map(error, us, pollution) {
+	if (error) throw error;
+	console.log(current_date);
+	
+	count += 1;
+	
+	svg.append("g")
+		.attr("class", "county")
+		.selectAll("path")
+		.data(topojson.feature(us, us.objects.counties).features)
+		.enter().append("path")
+		.attr("d", path);
+	
+	svg.append("path")
+		.datum(topojson.mesh(us, us.objects.states, 
+			function(x, y) { 
+				return (x.id !== y.id); }
+			))
+		.attr("class", "state")
+		.attr("d", path);
+		
+	svg.append("g")
+        .attr("class", "county")
+        .selectAll("path")
+        .data(topojson.feature(us, us.objects.counties).features)
+        .enter().append("path")
+        .attr("fill", function(d) {
+            var current_id = d.id;
+            var pollution_list_id = -1;
+            for (var i = 0; i < counties.length; i++) {
+                var pollution_map = pollution_maps[i];
+                var curent_pollution_map_id = pollution_map.key;
+                if (curent_pollution_map_id === current_id) {
+                    pollution_list_id = i;
+                    break;
+                }
+            }
+
+            if (pollution_list_id !== -1) {
+                var pollution_map = pollution_maps[pollution_list_id];
+                var info = pollution_map.value;
+                var date_info = info._;
+                if (typeof date_info !== 'undefined') {
+                    var date = date_info[current_date];
+					//if (date == end_date) {
+					//	return;
+					//}
+                    if (typeof date !== 'undefined') {
+                        var feature_value = date[current_feature];
+                        var map_color = colorScale(feature_value);
+                            return map_color;
+                        }
+                }
+            }
+			else return '#ededed';
+
+		})
+		.attr("d", path)
+		.on("mouseover", mouseover)
+		.on("mouseout", mouseout);
+
+	svg.append("text")
+		.attr("class", "label")
+		.attr("transform", "translate(" + (930) + "," + (-8) + ")")
+		.attr("dy", "1.5em")
+		.style("text-anchor", "end")
+		.text("AQI");
+}
+
+		var running = false;
+		var timer;
+		
+		$("button").on("click", function() {
+		
+			var duration = 3000,
+				maxstep = 2016,
+				minstep = 2000;
+			
+			if (running == true) {
+			
+				$("button").html("Play");
+				running = false;
+				clearInterval(timer);
+				
+			} 
+			/*
+else if (running == true && $("#slider").val() == maxstep) {
+				 running = true;
+				 $("button").html("Play1");
+				 
+			
+			} 
+*/
+			else if (running == false) {
+			
+				$("button").html("Pause");
+				
+				sliderValue = $("#slider").val();
+				
+				//timer = setInterval( function(){
+					//	if (sliderValue < maxstep){
+						//	sliderValue++;
+						//	$("#slider").val(sliderValue);
+						//	$('#range').html(sliderValue);
+						//}
+						$("#slider").val(sliderValue);
+						//console.log(sliderValue);
+				current_date = sliderValue+"-01-01";
+				current_window = 2016 - sliderValue;
+				test();
+					
+				//}, duration);
+				running = true;
+				
+				
+			}
+
+		});
+	
+		$("#slider").on("change", function(){
+				//svg.selectAll("path").attr("fill","red");
+				//svg.selectAll("county").style("fill","red");
+				sliderValue = $("#slider").val();
+				console.log(sliderValue);
+				current_date = sliderValue+"-01-01";
+				current_window = 2016 - sliderValue;
+				create_map("",us2);
+			$("#range").html($("#slider").val());
+			clearInterval(timer);
+			$("button").html("Play");
+		});
+		
+var selectpol = d3.select("#dropdown")
+	.append("select")
+	.attr("class", "select")
+	.on("change", changepol)
+	.attr("id", "selectpol")
+	.selectAll("option")
+    .data(pollutants)
+    .enter()
+    .append("option")
+    .attr("value", function(d, i) { return i; })
+    .text(function(d) { return d; })
+	
+/*var selectyr = d3.select("#dropdown2")
+	.append("select")
+	.attr("class", "select")
+	.on("change", changeyr)
+	.attr("id", "selectyr")
+	.selectAll("option")
+    .data(years)
+    .enter()
+    .append("option")
+    .attr("value", function(d, i) { return i; })
+    .text(function(d) { return d; })*/
+	
+var legendDomain =
+		colorScale.range().map(function(d) {
+		var r = (colorScale.invertExtent(d));
+		return r[0]; });
+	
+legendDomain[0]=0;
+
+var colors = ['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000'];
+
+var legend = svg.selectAll(".legend")
+		.data(legendDomain)
+		.enter().append("g")
+        .attr("class", "legend")
+		.attr("transform", "translate(" + 890 + "," + 18 + ")");
+
+    legend.append("rect")
+        .attr("x", 0)
+        .attr("y", function(d, i) { return 23 * i; }) 
+        .attr("width", 30)
+        .attr("height", 23)
+        .style("fill", function(d) { return colorScale(d); });
+
+	legend.append("text")
+		.text(function(d, i) { return ((legendDomain[i])); })
+        .attr("x", 25)
+        .attr("y", function(d, i) { return ((23 * i) + 10); })
+		.style("text-anchor", "start")
+		.attr("dx", "1em")
+		.attr("dy", ".2em");	
+
+function mouseover(d) {
+	tip.show(d);
+	d3.selectAll(".tooltip").style("opacity", .8);
+	d3.select(this).style("opacity", .3);
+	//d3.select(this).style("fill", "#4b0082")	
+}
+
+function mouseout(d) {
+	tip.hide(d);
+	d3.select(this).style("opacity", 1);
+	/*d3.select(this).style("fill", function(d) {
+			d.O3_AQI = m.get(d.id)
+			return colorScale(d.O3_AQI);})*/	
+}
+			
+function changepol() {     
+	var pol = d3.select("#dropdown")
+       .select("select")
+       .property("value");
+    current_feature = +pol;
+	d3.selectAll("path").remove();
+
+    create_map("", us2);
+    }; 
+
+/*function changeyr() {     
+	var yr = d3.select("#dropdown2")
+       .select("select")
+       .property("value");
+    current_window = +yr;
+	current_date = yrrange[current_window][0];
+	end_date = yrrange[current_window][1];
+    create_map("", us2);
+    }; */
+});
+</script>
+</body>
+</html>
