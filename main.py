@@ -3,7 +3,7 @@ import pandas as pd
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import numpy as np
+import csv
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV
@@ -33,7 +33,7 @@ class Pollution:
         self.county_directory = 'county_data/'
         self.feature_names = ['NO2_AQI', 'O3_AQI', 'SO2_AQI', 'CO_AQI', 'id', 'State Code', 'State']
 
-    def process_data(self, id_info=False):
+    def process_data(self, id_info=False, monthy_data=False):
         dataset = pd.read_csv('pollution_clean_8.csv', index_col='Date Local', parse_dates=True)
 
         #dataset.to_csv('dates.csv', columns=[], header=False)
@@ -62,6 +62,10 @@ class Pollution:
             self.city_data[c] = self.city_data[c].groupby(self.city_data[c].index).max()
             self.city_data[c].fillna(method='ffill', inplace=True)
             self.city_data[c].fillna(method='bfill', inplace=True)
+
+            # merge daily data into monthly
+            if monthy_data:
+                self.city_data[c] = self.city_data[c].resample('MS').mean()
 
         # Find the cities belonging to each county
         for c in self.cities:
@@ -280,17 +284,25 @@ class Pollution:
 
             self.save_forecast_accuracy(accuracy_info)
 
+    def get_county_location(self):
+        county_info = pd.read_csv('lat_long.csv')
+        county_info.Latitude = county_info.Latitude.str[0:-1]
+        county_info.Longitude = county_info.Longitude.str[0:-1]
+        county_info.to_csv('lat_long_filtered.csv', columns=['FIPS', 'Latitude', 'Longitude'], index=False)
+
 
 if __name__ == '__main__':
     id_info = False
+    monthly_data = True
     county = 4013
     feature = 1
     num_days_predict = 365
 
     poll = Pollution(county, feature, num_days_predict)
-    poll.process_data()
-    print(poll.counties)
-    poll.save_counties()
+    poll.get_county_location()
+
+    #poll.process_data(monthy_data=monthly_data)
+    #poll.save_counties()
 
     #poll.create_accuracy_files(num_counties=5)
     #poll.create_all_forecasts()
