@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Pollution Visualization </title>
+
+<script Type="text/javascript" src="../lib/d3.v3.min.js"></script>
+<script src="../lib/d3.tip.v0.6.3.js"></script>
+<script src="../lib/d3-queue.v3.min.js"></script>
+<script src="../lib/topojson.v1.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+<style type="text/css">
+text {
+	fill: #000;
+	font: 18px sans-serif;
+	font-weight: bold;
+	pointer-events: none;
+}
+.state {
+	fill: none;
+	stroke: white;
+	stroke-linejoin: round;
+}
+.legend text {
+	fill: #000;
+	font: 12px sans-serif;
+	pointer-events: none;
+}
+.tooltip {
+	position: absolute;           
+    background:rgba(0,0,0,0.8);
+    text-align: left;
+    border:1px;
+    border-radius:1px;
+    font: 12px sans-serif;        
+    width:auto;
+    padding:4px;
+    color:white;
+    opacity:.6;
+    pointer-events: none;       
+}
+.county {
+	fill: none;
+	stroke: #c0c0c0;
+	stroke-width: .2;
+	stroke-linejoin: round;
+}
+.label {
+	font: 13px sans-serif;
+	font-weight: bold;
+}
+
+.left{
+	float:left;
+}
+.center{
+	display:inline-block;
+}
+
+</style>
+<body> 
+
+<div id="dropdown">    <label>Select Pollutant: </label>
+</div>
+<div id="title"></div>
+<div id="choropleth" ></div>
+<div id = "choropleth2" ></div>
+<script type="text/javascript">
+
+
+var mleft = 40,
+	w = 1100 - mleft,
+    h = 700;
+
+var pollutants = ['NO2', 'O3', 'SO2', 'CO'];
+var years = ['2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', 
+	'2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016'];
+
+var map = d3.map();
+var map2 = d3.map();
+var map3 = d3.map();
+var map4 = d3.map();
+
+
+var newm = d3.map();
+
+var path = d3.geo.path();
+var path2 = d3.geo.path();
+
+var current_feature = 0;
+var current_window = 0;
+var q = d3.queue();
+var cname = d3.map();
+var states = d3.map();
+var files = ['state_NO2.csv', 'state_O3.csv', 'state_SO2.csv', 'state_CO.csv'];
+var maps = [map, map2, map3, map4];
+
+
+
+var colorScale = d3.scale.threshold()
+	.domain([10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,250])
+	.range(['#98fb98','#a6fc8e','#b2fc85','#c0fd78','#c7fd71','#d4fd63','#dbfe5b','#e6fe4c','#f0fe38','#f6ff2d','#ffff00',
+		'#ffed00','#ffd800','#ffc500','#ffb100','#ff9b00','#ff8400','#ff6a00','#ff4900','#ff0000']);
+	//.range(['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000']);
+	
+		
+var svg = d3.select("#choropleth").append("svg")
+    .attr("width", w -50)
+    .attr("height", h - 250)
+	.attr("transform", "translate(" + mleft + "," + 0 + ")");
+
+
+//svg.call(tip);
+
+var titlesvg = d3.select("#title").append("svg")
+    .attr("width", w)
+    .attr("height", 80)
+	titlesvg.append("text")
+		.attr("class", "title")
+		.attr("x", (w/2) - 20)
+		.attr("y", 30)
+		.attr("text-anchor", "middle")
+		.text("Pollution");
+
+var count = 0;
+
+var projection = d3.geo.albers();
+
+
+var path = d3.geo.path()
+    .projection(projection);
+
+
+
+	
+q.defer(d3.json, 'us.json')
+.defer(d3.csv, 'state_NO2.csv', function(d) {
+map.set(+d.id, +d.NO2_AQI);})
+.defer(d3.csv, 'state_O3.csv', function(d) {
+map2.set(+d.id, +d.O3_AQI, +d.Year);})
+.defer(d3.csv, 'state_SO2.csv', function(d) {
+map3.set(+d.id, +d.SO2_AQI, +d.Year);})
+.defer(d3.csv, 'state_CO.csv', function(d) {
+map4.set(+d.id, +d.CO_AQI, +d.Year);})
+.defer(d3.csv, "id_state_countyname.csv", function(d) {
+	cname.set(+d.id, d.name);})
+.defer(d3.csv, "id_state_countyname.csv", function(d) {
+	states.set(+d.id, d.State);})
+.await(create_map);
+
+var us2;
+	
+function create_map(error, us, pollution) {
+	if (error) throw error;
+	//console.log(current_date);
+	//console.log(alldates[count]);
+
+	//console.log(map.get(4013)[0]);
+	us2 = us
+
+  if (error) throw error;
+  
+    d3.selectAll("path").remove();
+	d3.selectAll("clipPath").remove();
+	d3.selectAll("clip-land").remove();
+	d3.selectAll("outline").remove();
+
+  var states = topojson.feature(us, us.objects.states),
+      state = states.features.filter(function(d) {  return d.id === 6;    })[0],
+      state2 = states.features.filter(function(d) {  return d.id === 25;    })[0];
+
+// projection.scale(1)
+//     .translate([0, 0]);
+
+// projection2.scale(1)
+// .translate([0,0]);
+
+
+var b3 = path.bounds(state),
+    sca = 2000,
+    trans = [740,250];
+    projection.scale(sca)
+    .translate(trans);
+
+
+    console.log(sca)
+    console.log(trans)
+
+svg.append("path")
+      .datum(state)
+      .attr("class", "outline")
+      .attr("d", path)
+      .attr('id', 'land');
+
+
+
+svg.append("clipPath")
+      .attr("id", "clip-land")
+      .append("use")
+      .attr("xlink:href", "#land");
+
+
+
+
+svg.selectAll("path")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+      .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return colorScale(y)
+    })
+      .attr("d", path)
+      .attr("clip-path", "url(#clip-land)");
+	
+	
+}
+
+		
+update_map = function(d) {
+	d3.selectAll("path")
+      .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return colorScale(y)
+    })
+      .attr("d", path);
+      //.attr("clip-path", "url(#clip-land)");
+}
+		
+var selectpol = d3.select("#dropdown")
+	.append("select")
+	.attr("class", "select")
+	.on("change", changepol)
+	.attr("id", "selectpol")
+	.selectAll("option")
+    .data(pollutants)
+    .enter()
+    .append("option")
+    .attr("value", function(d, i) { return i; })
+    .text(function(d) { return d; })
+	
+
+var colors = ['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000'];
+
+			
+function changepol() {     
+	var pol = d3.select("#dropdown")
+       .select("select")
+       .property("value");
+    current_feature = +pol;
+    create_map("", us2);
+    }; 
+
+
+</script>
+</body>
+</html>

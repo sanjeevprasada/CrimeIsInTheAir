@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+html{
+  background-color: #D3D3D3;
+}
+.outline {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.feature {
+  fill: #ccc;
+}
+
+.mesh {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+
+
+.mesh2 {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+.tip1 {
+  padding: 12px;
+  height: 50px;
+  background: rgba(50,50,50, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+.county {
+  fill: none;
+  stroke: #ededed;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+h2{
+  font-family: Arial
+}
+
+path {
+             /*Map Coloring (State)*/
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.county2{
+  stroke: #fff;
+  stroke-width: .5px;
+}
+
+
+
+.county:hover{
+  fill:orange;
+}
+
+</style>
+<body>
+  <h2 align="center"> Pollution by States</h2>
+<script Type="text/javascript" src="../lib/d3.v3.min.js"></script>
+<script src="../lib/d3.tip.v0.6.3.js"></script>
+<script src="../lib/d3-queue.v3.min.js"></script>
+<script src="../lib/topojson.v1.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+<div id="dropdown">    <label>Select Pollutant: </label></div>
+
+<div id="dropdown2">    <label>Select Year: </label></div>
+
+<script type="text/javascript">
+var width = 1460,
+    height = 1000;
+
+    var a = d3.map();
+    var b = d3.map();
+    var c = d3.map();
+    var d = d3.map();
+
+var q = d3.queue();
+var map = d3.map();
+var map2 = d3.map();
+var map3 = d3.map();
+var map4 = d3.map();
+
+var map5 = d3.map();
+var map6 = d3.map();
+var map7 = d3.map();
+var map8 = d3.map();
+
+var count = 0;
+
+
+var maps = [map, map2, map3, map4];
+var files = ['state_O3.csv', 'state_NO2.csv', 'state_CO.csv', 'state_SO2.csv'];
+var years = ['2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', 
+  '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016'];
+
+
+var yrrange = [['2000-01-01','2001-01-01'],
+  ['2001-01-01','2002-01-01'],
+  ['2002-01-01','2003-01-01'],
+  ['2003-01-01','2004-01-01'],
+  ['2004-01-01','2005-01-01'],
+  ['2005-01-01','2006-01-01'],
+  ['2006-01-01','2007-01-01'],
+  ['2007-01-01','2008-01-01'],
+  ['2008-01-01','2009-01-01'],
+  ['2009-01-01','2010-01-01'],
+  ['2010-01-01','2011-01-01'],
+  ['2011-01-01','2012-01-01'],
+  ['2012-01-01','2013-01-01'],
+  ['2013-01-01','2014-01-01'],
+  ['2014-01-01','2015-01-01'],
+  ['2015-01-01','2016-01-01'],
+  ['2016-01-01','2017-01-01']];
+
+var counties = [4013, 4019, 6013, 6025, 6029, 6037, 6059, 6065, 6067, 6071, 6073, 6075, 6083, 6087, 6095, 6111,
+    6001, 6019, 6023, 6085, 8001, 8031, 8057, 11001, 12095, 12057, 17031, 17163, 18097, 20107, 20191, 20209,
+    21019, 21059, 21067, 21101, 21111, 21145, 22033, 22051, 26163, 26081, 29189, 29510, 34007, 34013, 36005,
+    36103, 36101, 36055, 37067, 37119, 37183, 40021, 40071, 40115, 40143, 40001, 40109, 42003, 42007, 42011,
+    42013, 42017, 42021, 42069, 42071, 42073, 42091, 42095, 42101, 42125, 42129, 42133, 42049, 42043, 42079,
+    42001, 48113, 48141, 48201, 48309, 48029, 48453, 51059, 51510, 51087, 51650, 51161, 25025, 32003, 32031,
+    33011, 33015, 47075, 47121, 47009, 45019, 45079, 9009, 9001, 9003, 9005, 23003, 24005, 24033, 24023, 55079,
+    80002, 5119, 19153, 41051, 56041, 56021, 56037, 56013, 38017, 16001, 39009, 39103, 39035, 39061, 13089,
+    10003, 15003, 27003, 35001, 44007, 46099, 46127, 49035, 49013, 49047, 1073, 53033, 2090];
+
+var pollutants = ['NO2', 'O3', 'SO2', 'CO'];
+var pollution_maps = [];
+var pollution_map = d3.map();
+var current_date = "2000-01-01";
+var end_date = "2017-01-01";
+
+var q2 = d3.queue();
+var dates;
+var cname = d3.map();
+var states = d3.map();
+
+var projection = d3.geo.albers();
+var projection2 = d3.geo.albers();
+var projection3 = d3.geo.albers();
+var projection4 = d3.geo.albers();
+var projection5 = d3.geo.albers();
+var projection6 = d3.geo.albers();
+var projection7 = d3.geo.albers();
+var projection8 = d3.geo.albers();
+
+
+/*
+var projection = d3.geo.transverseMercator()
+          .rotate([120 + 30 / 60, -38 - 50 / 60])
+
+*/
+
+
+var current_feature = 0;
+var current_window = 0;
+var path = d3.geo.path()
+    .projection(projection);
+
+var path2 = d3.geo.path()
+    .projection(projection2);
+
+    var path3 = d3.geo.path()
+    .projection(projection3);
+
+    var path4 = d3.geo.path()
+    .projection(projection4);
+
+    var path5 = d3.geo.path()
+    .projection(projection5);
+
+var path6 = d3.geo.path()
+    .projection(projection6);
+var path7 = d3.geo.path()
+    .projection(projection7);
+var path8 = d3.geo.path()
+    .projection(projection8);
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+var x = d3.scale.linear()
+    .domain([0, 250])
+    .rangeRound([500, 850]);
+
+var color = d3.scale.threshold()
+    .domain([25, 50, 75, 100, 125, 150, 175, 200, 225, 250])
+    .range(['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000']);
+
+
+// svg.append("text")
+//         .attr("x", 170)             
+//         .attr("y", 40)
+//         .attr("text-anchor", "middle")  
+//         .style("font-size", "20px")  
+//         .style("font-family","Arial")
+//         .text("Georgia");
+
+// svg.append("text")
+//         .attr("x", 440)             
+//         .attr("y", 40)
+//         .attr("text-anchor", "middle")  
+//         .style("font-size", "20px") 
+//         .style("font-family","Arial")
+
+//         .text("New York");
+// svg.append("text")
+//         .attr("x", 700)             
+//         .attr("y", 40)
+//         .attr("text-anchor", "middle")  
+//         .style("font-size", "20px") 
+//         .style("font-family","Arial")
+
+//         .text("Florida");
+// svg.append("text")
+//         .attr("x", 1170)             
+//         .attr("y", 40)
+//         .attr("text-anchor", "middle")  
+//         .style("font-size", "20px")
+//         .style("font-family","Arial")
+//         .text("North Carolina");
+
+
+
+// var tip = d3.tip()
+// .attr('class','tip1')
+// .html(function(d){
+//     d.O3_AQI = a.get(d.id)
+//     d.County_name = b.get(d.id)
+    
+//         return "AQI: " +d.O3_AQI+"<br> Name: " +d.County_name+"<br> County ID: " +d.id;
+
+        
+//     }
+// )
+// svg.call(tip);
+
+
+
+
+// d3.queue()
+//     .defer(d3.json, "us.json")
+//     .defer(d3.csv, "state_O3.csv", function(d) { a.set(d.id, +d.O3_AQI);
+//     b.set(d.id, d.County_name); 
+// //console.log(b);
+
+//      })
+
+
+
+    q.defer(d3.json, 'us.json')
+.defer(d3.csv, 'state_NO2.csv', function(d) {
+map.set(+d.id, +d.NO2_AQI);})
+.defer(d3.csv, 'state_O3.csv', function(d) {
+map2.set(+d.id, +d.O3_AQI);})
+.defer(d3.csv, 'state_SO2.csv', function(d) {
+map3.set(+d.id, +d.SO2_AQI);})
+.defer(d3.csv, 'state_CO.csv', function(d) {
+map4.set(+d.id, +d.CO_AQI);})
+
+.await(create_map);
+
+var us2;
+
+//d3.json("us.json", function(error, us) {
+  
+
+function create_map(error, us, pollution) {
+
+
+  if (error) throw error;
+  us2 = us
+
+  d3.selectAll("path").remove();
+  d3.selectAll("clipPath").remove();
+  d3.selectAll("clip-land").remove();
+  d3.selectAll("outline").remove();
+
+
+  var states = topojson.feature(us, us.objects.states),
+      state = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 8;} else if(current_feature ==1){ return d.id === 26;} else if(current_feature ==2){return d.id===40;} else{return d.id === 56};    })[0], 
+      state2 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 40;} else if(current_feature ==1){ return d.id === 8;} else if(current_feature ==2){return d.id===6;} else{return d.id === 40};    })[0], 
+      state3 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 49;} else if(current_feature ==1){ return d.id === 40;} else if(current_feature ==2){return d.id===19;} else{return d.id === 36};    })[0],
+      state4 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 47;} else if(current_feature ==1){ return d.id === 1;} else if(current_feature ==2){return d.id===8;} else{return d.id === 32};    })[0];
+
+state5 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 4;} else if(current_feature ==1){ return d.id === 6;} else if(current_feature ==2){return d.id===17;} else{return d.id === 6};    })[0];
+state6 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 6;} else if(current_feature ==1){ return d.id === 42;} else if(current_feature ==2){return d.id===42;} else{return d.id === 29};    })[0];
+state7 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 26;} else if(current_feature ==1){ return d.id === 48;} else if(current_feature ==2){return d.id===36;} else{return d.id === 48};    })[0];
+state8 = states.features.filter(function(d) {  if(current_feature == 0){return d.id === 42;} else if(current_feature ==1){ return d.id === 36;} else if(current_feature ==2){return d.id===39;} else{return d.id === 33};    })[0];
+
+    projection.scale(1)
+    .translate([0, 0]);
+
+    projection2.scale(1)
+    .translate([150, 0]);
+
+    projection3.scale(1)
+    .translate([150, 0]);
+        projection4.scale(1)
+    .translate([150, 0]);
+
+      projection5.scale(1)
+    .translate([150, 0]);
+
+    projection6.scale(1)
+    .translate([150, 0]);
+    projection7.scale(1)
+    .translate([150, 0]);
+    projection8.scale(1)
+    .translate([150, 0]);
+ 
+var u = d3.select("#dropdown").property("value")
+console.log(u)
+
+    var b = path.bounds(state),
+    sca = .95 / Math.max((b[1][0] - b[0][0]) / width, (b[1][1] - b[0][1]) / 200),
+    trans = [(width - 1000 - sca * (b[1][0] + b[0][0])) / 2, (300 + 20 - sca * (b[1][1] + b[0][1])) / 2];
+
+    var b2 = path.bounds(state2),
+    sca2 = .95 / Math.max((b2[1][0] - b2[0][0]) / width, (b2[1][1] - b2[0][1]) / 200),
+    trans2 = [(width - 380 - sca2 * (b2[1][0] + b2[0][0])) / 2, (300 + 20 - sca2 * (b2[1][1] + b2[0][1])) / 2];
+
+
+    var b3 = path.bounds(state3),
+    sca3 = .95 / Math.max((b3[1][0] - b3[0][0]) / width, (b3[1][1] - b3[0][1]) / 200),
+    trans3 = [(width + 360  - sca3 * (b3[1][0] + b3[0][0])) / 2, (300 + 20 - sca3 * (b3[1][1] + b3[0][1])) / 2];
+ 
+    var b4 = path.bounds(state4),
+    sca4 = .95 / Math.max((b4[1][0] - b4[0][0]) / width, (b4[1][1] - b4[0][1]) / 200),
+    trans4 = [(width + 1100 - sca4 * (b4[1][0] + b4[0][0])) / 2, (300 + 20 - sca4 * (b4[1][1] + b4[0][1])) / 2];
+
+    var b5 = path.bounds(state5),
+    sca5 = .95 / Math.max((b5[1][0] - b5[0][0]) / width, (b5[1][1] - b5[0][1]) / 200),
+    trans5 = [(width -1000 - sca5 * (b5[1][0] + b5[0][0])) / 2, (300 + 620 - sca5 * (b5[1][1] + b5[0][1])) / 2];
+
+    var b6 = path.bounds(state6),
+    sca6 = .95 / Math.max((b6[1][0] - b6[0][0]) / width, (b6[1][1] - b6[0][1]) / 200),
+    trans6 = [(width -380 - sca6 * (b6[1][0] + b6[0][0])) / 2, (300 + 620 - sca6 * (b6[1][1] + b6[0][1])) / 2];
+    var b7 = path.bounds(state7),
+    sca7 = .95 / Math.max((b7[1][0] - b7[0][0]) / width, (b7[1][1] - b7[0][1]) / 200),
+    trans7 = [(width + 360 - sca7 * (b7[1][0] + b7[0][0])) / 2, (300 + 620 - sca7 * (b7[1][1] + b7[0][1])) / 2];
+    var b8 = path.bounds(state8),
+    sca8 = .95 / Math.max((b8[1][0] - b8[0][0]) / width, (b8[1][1] - b8[0][1]) / 200),
+    trans8 = [(width + 1100 - sca8 * (b8[1][0] + b8[0][0])) / 2, (300 + 620 - sca8 * (b8[1][1] + b8[0][1])) / 2];
+
+    //console.log(trans)
+
+
+    projection2.scale(sca2)
+    .translate(trans2);
+
+    projection.scale(sca)
+    .translate(trans);
+
+    projection3.scale(sca3)
+    .translate(trans3); 
+
+  projection4.scale(sca4)
+    .translate(trans4);
+
+    projection5.scale(sca5)
+    .translate(trans5);
+
+    projection6.scale(sca6)
+    .translate(trans6);
+    projection7.scale(sca7)
+    .translate(trans7);
+    projection8.scale(sca8)
+    .translate(trans8);
+
+  // svg.append("path")
+  //     .datum(topojson.mesh(us, us.objects.states, function(a, b) { return a !== b; }))
+  //     .attr("class", "mesh")
+  //     .attr("d", path);
+  
+svg.append("text")
+        .attr("x", 170)             
+        .attr("y", 30)
+        .attr("text-anchor", "middle")  
+        .style("font-size", "20px")
+        .style("font-family","Arial")
+        .text("Top 4 based on Pollutants");
+
+svg.append("text")
+        .attr("x", 170)             
+        .attr("y", 330)
+        .attr("text-anchor", "middle")  
+        .style("font-size", "20px")
+        .style("font-family","Arial")
+        .text("Worst 4 based on Pollutants");
+
+  svg.append("path")
+      .datum(state)
+      .attr("class", "outline")
+      .attr("d", path)
+      .attr('id', 'land');
+
+      svg.append("path")
+      .datum(state2)
+      .attr("class", "outline")
+      .attr("d", path2)
+      .attr('id', 'land2');
+
+svg.append("path")
+      .datum(state3)
+      .attr("class", "outline")
+      .attr("d", path3)
+      .attr('id', 'land3');
+
+svg.append("path")
+      .datum(state4)
+      .attr("class", "outline")
+      .attr("d", path4)
+      .attr('id', 'land4');
+
+svg.append("path")
+      .datum(state5)
+      .attr("class", "outline")
+      .attr("d", path5)
+      .attr('id', 'land5');
+
+svg.append("path")
+      .datum(state6)
+      .attr("class", "outline")
+      .attr("d", path6)
+      .attr('id', 'land6');
+
+svg.append("path")
+      .datum(state7)
+      .attr("class", "outline")
+      .attr("d", path7)
+      .attr('id', 'land7');
+
+svg.append("path")
+      .datum(state8)
+      .attr("class", "outline")
+      .attr("d", path8)
+      .attr('id', 'land8');
+
+
+// var g = svg.append("g")
+//     .attr("class", "key")
+//     .attr("transform", "translate(420,300)");
+
+// g.selectAll("rect")
+//    .data(color.range().map(function(d) {
+//        d = color.invertExtent(d);
+//        if (d[0] == null) d[0] = x.domain()[0];
+//        if (d[1] == null) d[1] = x.domain()[1];
+//        return d;
+//      }))
+//   .enter().append("rect")
+//     .attr("height", 8)
+//     .attr("x", function(d) { return x(d[0]); })
+//     .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+//     .attr("fill", function(d) { return color(d[0]); });
+
+//     g.call(d3.svg.axis()
+//     .scale(x)
+//     .orient("bottom")
+//     .tickSize(8)
+//     .tickValues(color.domain()))
+//             .style("font-family","Arial")
+//             .style("font-size","15px")
+
+//     .select(".domain")
+
+//     .remove();
+
+// g.append("text")
+//     .attr("class", "caption")
+//     .attr("x", x.range()[0])
+//     .attr("y", -6)
+//     .attr("fill", "#000")
+//     .attr("font-weight", "bold")
+//             .style("font-family","Arial")
+//     .text("O3 AQI");
+
+   svg.append("clipPath")
+      .attr("id", "clip-land")
+      .append("use")
+      .attr("xlink:href", "#land");
+
+      svg.append("clipPath")
+      .attr("id", "clip-land2")
+      .append("use")
+      .attr("xlink:href", "#land2");
+
+            svg.append("clipPath")
+      .attr("id", "clip-land3")
+      .append("use")
+      .attr("xlink:href", "#land3");
+
+      svg.append("clipPath")
+      .attr("id", "clip-land4")
+      .append("use")
+      .attr("xlink:href", "#land4");
+
+      svg.append("clipPath")
+      .attr("id", "clip-land5")
+      .append("use")
+      .attr("xlink:href", "#land5");
+
+      svg.append("clipPath")
+      .attr("id", "clip-land6")
+      .append("use")
+      .attr("xlink:href", "#land6");
+
+      svg.append("clipPath")
+      .attr("id", "clip-land7")
+      .append("use")
+      .attr("xlink:href", "#land7");
+
+      svg.append("clipPath")
+      .attr("id", "clip-land8")
+      .append("use")
+      .attr("xlink:href", "#land8");
+
+  // svg.selectAll("path")
+  //     .data(topojson.feature(us, us.objects.states).features)
+  //     .enter().append("path")
+  //     .attr("d", path)
+  //                 .attr("fill", function(d) { return color(d.O3_AQI = a.get(d.id)); })
+
+  //     .attr('county-id', function(d){
+  //        return d.id
+  //     }).attr("clip-path", "url(#clip-land)")
+
+console.log(current_feature)
+
+
+svg.selectAll("path")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+      .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path)
+      .attr("clip-path", "url(#clip-land)")
+   
+
+      svg.selectAll("path2")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+       //.attr("fill", function(d) { return color(d.O3_AQI = a.get(d.id)); })
+      .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path2)
+      .attr("clip-path", "url(#clip-land2)")
+//       //.on("mouseover",tip.show)
+//       //.on("mouseout",tip.hide);
+
+//   // svg.selectAll("path2")
+//   //     .data(topojson.feature(us, us.objects.states).features)
+//   //     .enter().append("path")
+//   //     .attr("d", path2)
+//   //     .attr("fill", function(d) { return color(d.O3_AQI = a.get(d.id)); })
+//   //     .attr('county-id', function(d){
+//   //        return d.id
+//   //     }).attr("clip-path", "url(#clip-land2)")
+
+
+//       // svg.selectAll("path2")
+//       // .data(topojson.feature(us, us.objects.counties).features)
+//       // .enter().append("path")
+//       // .attr("d", path2)
+//       // .attr("clip-path", "url(#clip-land2)")
+//       // .attr("class","county")
+
+//       // svg.selectAll("path3")
+//       // .data(topojson.feature(us, us.objects.states).features)
+//       // .enter().append("path")
+//       // .attr("d", path3)
+//       //       .attr("fill", function(d) { return color(d.O3_AQI = a.get(d.id)); })
+
+//       // .attr('county-id', function(d){
+//       //    return d.id
+//       // }).attr("clip-path", "url(#clip-land3)")
+//       //.on("mouseover",tip.show)
+//       //.on("mouseout",tip.hide);
+svg.selectAll("path3")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+       .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path3)
+      .attr("clip-path", "url(#clip-land3)")
+
+
+      svg.selectAll("path5")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+       .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path5)
+      .attr("clip-path", "url(#clip-land5)")
+
+svg.selectAll("path6")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+       .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path6)
+      .attr("clip-path", "url(#clip-land6)")
+
+      svg.selectAll("path7")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+       .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path7)
+      .attr("clip-path", "url(#clip-land7)")
+
+      svg.selectAll("path8")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+       .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path8)
+      .attr("clip-path", "url(#clip-land8)")
+
+//       //.on("mouseover",tip.show)
+//      // .on("mouseout",tip.hide);
+
+//       // svg.selectAll("path3")
+//       // .data(topojson.feature(us, us.objects.counties).features)
+//       // .enter().append("path")
+//       // .attr("d", path3)
+//       // .attr("clip-path", "url(#clip-land3)")
+//       // .attr("class","county")
+
+//       // svg.selectAll("path4")
+//       // .data(topojson.feature(us, us.objects.states).features)
+//       // .enter().append("path")
+//       // .attr("d", path4)
+//       //       .attr("fill", function(d) { return color(d.O3_AQI = a.get(d.id)); })
+
+//       // .attr('county-id', function(d){
+//       //    return d.id
+//       // }).attr("clip-path", "url(#clip-land4)")
+
+      svg.selectAll("path4")
+      .data(topojson.feature(us, us.objects.counties).features)
+      .enter().append("path")
+      .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path4)
+      .attr("clip-path", "url(#clip-land4)")
+      //.on("mouseover",tip.show)
+      //.on("mouseout",tip.hide);
+      
+
+};
+
+
+  
+update_map = function(d) {
+  d3.selectAll("path")
+      .attr("fill", function(d) {
+      var y = maps[current_feature].get(d.id);
+      return color(y)
+    })
+      .attr("d", path);
+      //.attr("clip-path", "url(#clip-land)");
+}
+    
+var selectpol = d3.select("#dropdown")
+  .append("select")
+  .attr("class", "select")
+  .on("change", changepol)
+  .attr("id", "selectpol")
+  .selectAll("option")
+    .data(pollutants)
+    .enter()
+    .append("option")
+    .attr("value", function(d, i) { return i; })
+    .text(function(d) { return d; })
+console.log(selectpol)
+
+    var selectyr = d3.select("#dropdown2")
+  .append("select")
+  .attr("class", "select")
+  .on("change", changeyr)
+  .attr("id", "selectyr")
+  .selectAll("option")
+    .data(years)
+    .enter()
+    .append("option")
+    .attr("value", function(d, i) { return i; })
+    .text(function(d) { return d; })
+  
+
+var colors = ['#98fb98','#b2fc85','#c7fd71','#dbfe5b','#f0fe38','#ffff00','#ffc800','#f98f00','#e25a00','#be2701','#8b0000'];
+
+      
+function changepol() {     
+  var pol = d3.select("#dropdown")
+       .select("select")
+       .property("value");
+    current_feature = +pol;
+    create_map("", us2);
+    };
+
+function changeyr() {     
+  var yr = d3.select("#dropdown2")
+       .select("select")
+       .property("value");
+    current_window = +yr;
+  current_date = yrrange[current_window][0];
+  end_date = yrrange[current_window][1];
+    create_map("", us2);
+    }; 
+    
+
+</script>
+</body>
