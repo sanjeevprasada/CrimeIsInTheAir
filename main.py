@@ -339,6 +339,9 @@ class Pollution:
 
                 self.county_data_all[county_code] = combined
 
+            else:
+                self.county_data_all[county_code] = self.county_data[county_code]
+
         # create county_daily_predictions data
         print("Predicting daily data")
         self.create_all_forecasts()
@@ -357,12 +360,6 @@ class Pollution:
                 self.county_data[c] = self.county_data[c].resample('MS').mean()
         self.county_directory = 'county_monthly_data/'
         self.save_counties()
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
