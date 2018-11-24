@@ -221,7 +221,11 @@ class Pollution:
         self.county_data[county] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
     def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred, monthly_data=False):
-        dates_pd = self.county_data[self.county].index
+        # merge daily data into monthly
+        if monthly_data:
+            dates_pd = self.county_data[self.county].resample('MS').mean().index
+        else:
+            dates_pd = self.county_data[self.county].index
 
         last_date = dates_pd.max()
         last_date = last_date + pd.DateOffset(days=1)
@@ -229,9 +233,14 @@ class Pollution:
         x_extended = pd.date_range(start=last_date, end=extended_date)
 
         y_pred = np.concatenate((y_train_pred, y_test_pred, y_unseen_pred), axis=0)
-        all_dates = dates_pd.append(x_extended).values
+        all_dates = dates_pd.append(x_extended)
 
-        directory = 'forecast_data_daily/'
+        if monthly_data:
+            directory = 'forecast_data_monthly/'
+        else:
+            directory = 'forecast_data_daily/'
+
+        all_dates = all_dates.values
 
         if not os.path.exists(directory):
             os.mkdir(directory)
@@ -281,7 +290,7 @@ class Pollution:
 
             self.save_forecast_accuracy(accuracy_info)
 
-    def get_county_info(self):
+    def get_county_info(self, monthly_data):
         county_info = pd.read_csv('lat_long.csv')
 
         # get lat/long position
@@ -344,7 +353,7 @@ class Pollution:
 
         # create county_daily_predictions data
         print("Predicting daily data")
-        self.create_all_forecasts()
+        self.create_all_forecasts(monthly_data)
 
         # create county_daily data
         print("Saving all county daily data")
@@ -371,7 +380,7 @@ if __name__ == '__main__':
 
     poll = Pollution(county, feature, num_days_predict)
     poll.process_data()
-    poll.get_county_info()
+    poll.get_county_info(monthly_data)
 
     #poll.process_data(monthy_data=monthly_data)
     #poll.save_counties()
