@@ -11,7 +11,8 @@ import multiprocessing
 import os
 from tqdm import tqdm
 
-''' References: (1) https://stackoverflow.com/questions/24588437/convert-date-to-float-for-linear-regression-on-pandas-data-frame/24590666,
+''' References: 
+    (1) https://stackoverflow.com/questions/24588437/convert-date-to-float-for-linear-regression-on-pandas-data-frame/24590666,
     (2) https://matplotlib.org/gallery/text_labels_and_annotations/date.html
 '''
 
@@ -28,6 +29,7 @@ class Pollution:
         self.counties = []
         self.county_cities = defaultdict(lambda: defaultdict(list))   # [state][county] = list of all cities in county
         self.county_data = defaultdict()  # [id] = dataframe for given county
+        self.county_data_all = defaultdict()
         self.county_info = defaultdict(list)  # [id] = [county, state]
         self.city_directory = 'city_data/'
         self.county_directory = 'county_data/'
@@ -36,12 +38,9 @@ class Pollution:
     def process_data(self, id_info=False, monthy_data=False):
         dataset = pd.read_csv('pollution_clean_8.csv', index_col='Date Local', parse_dates=True)
 
-        #dataset.to_csv('dates.csv', columns=[], header=False)
-
         features = list(dataset.columns.values)
 
         self.cities = dataset['City'].unique()
-        #self.cities = list(self.cities)[0:5]
         city_info = defaultdict(lambda: defaultdict(str))
 
         # Create a dataframe and information dictionary for each city
@@ -74,7 +73,6 @@ class Pollution:
             self.county_cities[state][county].append(c)
 
         # Merge cities into single county dataframe
-        # TODO potentially merge cities into average county data
         for state, counties in self.county_cities.items():
             for county, cities in counties.items():
                 county_id = city_info[cities[0]]['id']
@@ -132,11 +130,11 @@ class Pollution:
 
         y_train_pred = model.predict(x_train)
         mse_train = mean_squared_error(y_train, y_train_pred)
-        print("MSE on train set: {}".format(mse_train))
+        #print("MSE on train set: {}".format(mse_train))
 
         y_test_pred = model.predict(x_test)
         mse_test = mean_squared_error(y_test, y_test_pred)
-        print("MSE on test set: {}".format(mse_test))
+        #print("MSE on test set: {}".format(mse_test))
 
         # Train on all data, use that to predict 'x' days into the future
         model = KernelRidge(alpha=self.best_alpha, kernel='rbf', gamma=self.best_gamma)
@@ -209,10 +207,10 @@ class Pollution:
         if not os.path.exists(self.county_directory):
             os.mkdir(self.county_directory)
 
-        for c in self.counties:
-            file_path = '{}{}.csv'.format(self.county_directory, c)
-            if not os.path.exists(file_path):
-                self.county_data[c].to_csv(file_path)
+            for c in tqdm(self.counties):
+                file_path = '{}{}.csv'.format(self.county_directory, c)
+                if not os.path.exists(file_path) and c in self.county_data.keys() and self.county_data[c] is not None:
+                    self.county_data[c].to_csv(file_path)
 
     def load_city(self, city):
         file_path = '{}{}.csv'.format(self.city_directory, city.replace(' ', '_'))
@@ -222,7 +220,7 @@ class Pollution:
         file_path = '{}{}.csv'.format(self.county_directory, county)
         self.county_data[county] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
-    def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred):
+    def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred, monthly_data=False):
         dates_pd = self.county_data[self.county].index
 
         last_date = dates_pd.max()
@@ -233,7 +231,8 @@ class Pollution:
         y_pred = np.concatenate((y_train_pred, y_test_pred, y_unseen_pred), axis=0)
         all_dates = dates_pd.append(x_extended).values
 
-        directory = 'forecast_data/'
+        directory = 'forecast_data_daily/'
+
         if not os.path.exists(directory):
             os.mkdir(directory)
 
@@ -253,9 +252,7 @@ class Pollution:
                 [mse_train, mse_test] = accuracy_info[c]
                 file.write("{}-{}, {}, {}\n".format(county, state, mse_train, mse_test))
 
-    def create_all_forecasts(self):
-        self.process_data()
-
+    def create_all_forecasts(self, monthly_data=False):
         features = [0, 1, 2, 3]
         accuracy_info = defaultdict(list)
         for c in tqdm(self.counties):
@@ -265,7 +262,7 @@ class Pollution:
 
                 y_train_pred, y_test_pred, y_unseen_pred, mse_train, mse_test = poll.predict()
                 accuracy_info[c] = [mse_train, mse_test]
-                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred)
+                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred, monthly_data)
 
     def create_accuracy_files(self, num_counties=-1):
         self.process_data()
@@ -284,11 +281,88 @@ class Pollution:
 
             self.save_forecast_accuracy(accuracy_info)
 
-    def get_county_location(self):
+    def get_county_info(self):
         county_info = pd.read_csv('lat_long.csv')
+
+        # get lat/long position
         county_info.Latitude = county_info.Latitude.str[0:-1]
         county_info.Longitude = county_info.Longitude.str[0:-1]
         county_info.to_csv('lat_long_filtered.csv', columns=['FIPS', 'Latitude', 'Longitude'], index=False)
+
+        state_counties = defaultdict(list)
+        county_state = defaultdict()
+        all_counties = set()
+        state_info = defaultdict(list)
+
+        # get all counties in each state
+        for index, row in county_info.iterrows():
+            state = row['State']
+            county_code = row['FIPS']
+            state_counties[state].append(county_code)
+            county_state[county_code] = state
+            all_counties.add(county_code)
+            state_info[state].append(county_code)
+
+        # create data for counties that don't have any by averaging county data for that state
+        all_counties = list(all_counties)
+        counties_with_data = self.county_data.keys()
+
+        print("Averaging data for unknown counties")
+        for county_code in tqdm(all_counties):
+            state = county_state[county_code]
+            if county_code not in counties_with_data:
+                # get all counties in this state
+                counties_in_state = state_info[state]
+
+                # get the counties that we have data for
+                counties_with_data_for_state = list(set(counties_in_state) & set(counties_with_data))
+
+                # average the county data
+                combined = None
+                if len(counties_with_data_for_state) == 1:
+                    combined = self.county_data[counties_with_data_for_state[0]]
+                if len(counties_with_data_for_state) == 2:
+                    combined = pd.concat([self.county_data[counties_with_data_for_state[0]], self.county_data[counties_with_data_for_state[1]]], axis=1)
+                    combined = combined.groupby(combined.columns.values, axis=1).mean()
+                if len(counties_with_data_for_state) == 3:
+                    combined = pd.concat([self.county_data[counties_with_data_for_state[0]], self.county_data[counties_with_data_for_state[1]]], axis=1)
+                    combined = pd.concat([combined, self.county_data[counties_with_data_for_state[2]]], axis=1)
+                    combined = combined.groupby(combined.columns.values, axis=1).mean()
+                if len(counties_with_data_for_state) >= 4:
+                    for current_index, county_with_data_for_state in enumerate(counties_with_data_for_state):
+                        if current_index > 0:
+                            combined = pd.concat([combined, self.county_data[counties_with_data_for_state[current_index]]], axis=1)
+                        else:
+                            combined = self.county_data[counties_with_data_for_state[0]]
+
+                    combined = combined.groupby(combined.columns.values, axis=1).mean()
+
+                self.county_data_all[county_code] = combined
+
+        # create county_daily_predictions data
+        print("Predicting daily data")
+        self.create_all_forecasts()
+
+        # create county_daily data
+        print("Saving all county daily data")
+        self.county_data = self.county_data_all
+        self.counties = all_counties
+        self.county_directory = 'county_daily_data/'
+        self.save_counties()
+
+        # create county_monthly data
+        print("Saving all county monthly data")
+        for c in all_counties:
+            if c in self.county_data.keys() and self.county_data[c] is not None:
+                self.county_data[c] = self.county_data[c].resample('MS').mean()
+        self.county_directory = 'county_monthly_data/'
+        self.save_counties()
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
@@ -299,7 +373,8 @@ if __name__ == '__main__':
     num_days_predict = 365
 
     poll = Pollution(county, feature, num_days_predict)
-    poll.get_county_location()
+    poll.process_data()
+    poll.get_county_info()
 
     #poll.process_data(monthy_data=monthly_data)
     #poll.save_counties()
