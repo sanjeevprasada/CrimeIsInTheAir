@@ -10,6 +10,7 @@ from sklearn.model_selection import GridSearchCV
 import multiprocessing
 import os
 from tqdm import tqdm
+import datetime
 
 ''' References: 
     (1) https://stackoverflow.com/questions/24588437/convert-date-to-float-for-linear-regression-on-pandas-data-frame/24590666,
@@ -34,6 +35,7 @@ class Pollution:
         self.city_directory = 'city_data/'
         self.county_directory = 'county_data/'
         self.feature_names = ['NO2_AQI', 'O3_AQI', 'SO2_AQI', 'CO_AQI', 'id', 'State Code', 'State']
+        self.last_day = None
 
     def process_data(self, id_info=False, monthy_data=False):
         dataset = pd.read_csv('pollution_clean_8.csv', index_col='Date Local', parse_dates=True)
@@ -220,14 +222,23 @@ class Pollution:
         file_path = '{}{}.csv'.format(self.county_directory, county)
         self.county_data[county] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
-    def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred, monthly_data=False):
+    def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred, monthly_data=False, last_day_prediction=False):
         # merge daily data into monthly
         if monthly_data:
-            dates_pd = self.county_data[self.county].resample('MS').mean().index
+            dates_pd = self.county_data[1073].resample('MS').mean().index
         else:
-            dates_pd = self.county_data[self.county].index
+            dates_pd = self.county_data[1073].index
 
         last_date = dates_pd.max()
+
+        if last_day_prediction:
+            if monthly_data:
+                last_data_day = datetime.datetime(2016, 5, 1, 0, 0, 0)
+            else:
+                last_data_day = datetime.datetime(2016, 5, 31, 0, 0, 0)
+            if last_date != last_data_day:
+                return
+
         last_date = last_date + pd.DateOffset(days=1)
         extended_date = last_date + pd.DateOffset(days=self.num_days_predict - 1)
         x_extended = pd.date_range(start=last_date, end=extended_date)
@@ -261,7 +272,7 @@ class Pollution:
                 [mse_train, mse_test] = accuracy_info[c]
                 file.write("{}-{}, {}, {}\n".format(county, state, mse_train, mse_test))
 
-    def create_all_forecasts(self, monthly_data=False):
+    def create_all_forecasts(self, monthly_data, last_day_prediction):
         features = [0, 1, 2, 3]
         accuracy_info = defaultdict(list)
         for c in tqdm(self.counties):
@@ -271,7 +282,7 @@ class Pollution:
 
                 y_train_pred, y_test_pred, y_unseen_pred, mse_train, mse_test = poll.predict()
                 accuracy_info[c] = [mse_train, mse_test]
-                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred, monthly_data)
+                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred, monthly_data, last_day_prediction)
 
     def create_accuracy_files(self, num_counties=-1):
         self.process_data()
@@ -290,7 +301,7 @@ class Pollution:
 
             self.save_forecast_accuracy(accuracy_info)
 
-    def get_county_info(self, monthly_data):
+    def get_county_info(self, monthly_data, last_day_prediction):
         county_info = pd.read_csv('lat_long.csv')
 
         # get lat/long position
@@ -353,7 +364,7 @@ class Pollution:
 
         # create county_daily_predictions data
         print("Predicting daily data")
-        self.create_all_forecasts(monthly_data)
+        self.create_all_forecasts(monthly_data, last_day_prediction)
 
         # create county_daily data
         print("Saving all county daily data")
@@ -374,13 +385,14 @@ class Pollution:
 if __name__ == '__main__':
     id_info = False
     monthly_data = True
+    last_day_prediction= True
     county = 4013
     feature = 1
     num_days_predict = 365
 
     poll = Pollution(county, feature, num_days_predict)
     poll.process_data()
-    poll.get_county_info(monthly_data)
+    poll.get_county_info(monthly_data, last_day_prediction)
 
     #poll.process_data(monthy_data=monthly_data)
     #poll.save_counties()
