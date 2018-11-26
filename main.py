@@ -222,40 +222,37 @@ class Pollution:
         file_path = '{}{}.csv'.format(self.county_directory, county)
         self.county_data[county] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
-    def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred, monthly_data=False, last_day_prediction=False):
-        if monthly_data:
-            dates_pd = self.county_data[self.county].resample('MS').mean().index
-        else:
-            dates_pd = self.county_data[self.county].index
+    def save_forecast(self, prediction_info):
+        dates_pd = self.county_data[self.county].index
 
         last_date = dates_pd.max()
-
-        if last_day_prediction:
-            if monthly_data:
-                last_data_day = datetime.datetime(2016, 5, 1, 0, 0, 0)
-            else:
-                last_data_day = datetime.datetime(2016, 5, 31, 0, 0, 0)
-            if last_date != last_data_day:
-                return
 
         last_date = last_date + pd.DateOffset(days=1)
         extended_date = last_date + pd.DateOffset(days=self.num_days_predict - 1)
         x_extended = pd.date_range(start=last_date, end=extended_date)
 
-        y_pred = y_unseen_pred
-        forecast_data = pd.DataFrame(data=y_pred, index=x_extended)
+        all_dates = dates_pd.append(x_extended)
 
-        if monthly_data:
-            directory = 'forecast_data_monthly/'
-            forecast_data = forecast_data.resample('MS').mean()
-        else:
-            directory = 'forecast_data_daily/'
+        y_pred_NO2 = prediction_info['NO2_AQI']
+        y_pred_O3 = prediction_info['O3_AQI']
+        y_pred_SO2 = prediction_info['SO2_AQI']
+        y_pred_CO = prediction_info['CO_AQI']
 
+        directory = 'forecast_data_daily/'
         if not os.path.exists(directory):
             os.mkdir(directory)
 
-        file_path = '{}{}_{}.csv'.format(directory, self.county, self.feature_names[self.feature].replace(' ', '_'))
-        forecast_data.to_csv(file_path, header=None)
+        file_path = '{}{}.csv'.format(directory, self.county)
+        with open(file_path, 'w') as file:
+            file.write('Date Local, NO2_AQI, O3_AQI, SO2_AQI, CO_AQI, Predicted\n')
+            for index, row in enumerate(all_dates):
+                if index == all_dates.shape[0] - 1:
+                    file.write("{}, {}, {}, {}, {}, 1".format(row, y_pred_NO2[index], y_pred_O3[index], y_pred_SO2[index], y_pred_CO[index]))
+                else:
+                    if index > (all_dates.shape[0] - self.num_days_predict):
+                        file.write("{}, {}, {}, {}, {}, 1\n".format(row, y_pred_NO2[index], y_pred_O3[index], y_pred_SO2[index], y_pred_CO[index]))
+                    else:
+                        file.write("{}, {}, {}, {}, {}, 0\n".format(row, y_pred_NO2[index], y_pred_O3[index], y_pred_SO2[index], y_pred_CO[index]))
 
     def save_forecast_accuracy(self, accuracy_info):
         with open('accuracy_{}.csv'.format(self.feature_names[self.feature]), 'w') as file:
@@ -265,17 +262,20 @@ class Pollution:
                 [mse_train, mse_test] = accuracy_info[c]
                 file.write("{}-{}, {}, {}\n".format(county, state, mse_train, mse_test))
 
-    def create_all_forecasts(self, monthly_data, last_day_prediction):
+    def create_all_forecasts(self):
         features = [0, 1, 2, 3]
         accuracy_info = defaultdict(list)
+
         for c in tqdm(self.counties):
+            prediction_info = defaultdict()
             for f in features:
                 self.feature = f
                 self.county = c
 
                 y_train_pred, y_test_pred, y_unseen_pred, mse_train, mse_test = poll.predict()
                 accuracy_info[c] = [mse_train, mse_test]
-                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred, monthly_data, last_day_prediction)
+                prediction_info[self.feature_names[f]] = np.concatenate((y_train_pred, y_test_pred, y_unseen_pred), axis=0)
+            self.save_forecast(prediction_info)
 
     def create_accuracy_files(self, num_counties=-1):
         self.process_data()
@@ -290,11 +290,10 @@ class Pollution:
 
                 y_train_pred, y_test_pred, y_unseen_pred, mse_train, mse_test = poll.predict()
                 accuracy_info[c] = [mse_train, mse_test]
-                self.save_forecast(y_train_pred, y_test_pred, y_unseen_pred)
 
             self.save_forecast_accuracy(accuracy_info)
 
-    def get_county_info(self, monthly_data, last_day_prediction):
+    def get_county_info(self):
         county_info = pd.read_csv('lat_long.csv')
 
         # get lat/long position
@@ -357,7 +356,7 @@ class Pollution:
 
         # create county_daily_predictions data
         print("Predicting daily data")
-        self.create_all_forecasts(monthly_data, last_day_prediction)
+        self.create_all_forecasts()
 
         # create county_daily data
         print("Saving all county daily data")
@@ -377,15 +376,13 @@ class Pollution:
 
 if __name__ == '__main__':
     id_info = False
-    monthly_data = True
-    last_day_prediction= True
     county = 4013
     feature = 1
     num_days_predict = 365
 
     poll = Pollution(county, feature, num_days_predict)
     poll.process_data()
-    poll.get_county_info(monthly_data, last_day_prediction)
+    poll.get_county_info()
 
     #poll.process_data(monthy_data=monthly_data)
     #poll.save_counties()
