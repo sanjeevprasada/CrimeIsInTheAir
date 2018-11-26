@@ -223,11 +223,10 @@ class Pollution:
         self.county_data[county] = pd.read_csv(file_path, index_col='Date Local', parse_dates=True)
 
     def save_forecast(self, y_train_pred, y_test_pred, y_unseen_pred, monthly_data=False, last_day_prediction=False):
-        # merge daily data into monthly
         if monthly_data:
-            dates_pd = self.county_data[1073].resample('MS').mean().index
+            dates_pd = self.county_data[self.county].resample('MS').mean().index
         else:
-            dates_pd = self.county_data[1073].index
+            dates_pd = self.county_data[self.county].index
 
         last_date = dates_pd.max()
 
@@ -243,26 +242,20 @@ class Pollution:
         extended_date = last_date + pd.DateOffset(days=self.num_days_predict - 1)
         x_extended = pd.date_range(start=last_date, end=extended_date)
 
-        y_pred = np.concatenate((y_train_pred, y_test_pred, y_unseen_pred), axis=0)
-        all_dates = dates_pd.append(x_extended)
+        y_pred = y_unseen_pred
+        forecast_data = pd.DataFrame(data=y_pred, index=x_extended)
 
         if monthly_data:
             directory = 'forecast_data_monthly/'
+            forecast_data = forecast_data.resample('MS').mean()
         else:
             directory = 'forecast_data_daily/'
-
-        all_dates = all_dates.values
 
         if not os.path.exists(directory):
             os.mkdir(directory)
 
         file_path = '{}{}_{}.csv'.format(directory, self.county, self.feature_names[self.feature].replace(' ', '_'))
-        with open(file_path, 'w') as file:
-            for index, row in enumerate(all_dates):
-                if index == all_dates.shape[0] - 1:
-                    file.write("{}, {}".format(row, y_pred[index]))
-                else:
-                    file.write("{}, {}\n".format(row, y_pred[index]))
+        forecast_data.to_csv(file_path, header=None)
 
     def save_forecast_accuracy(self, accuracy_info):
         with open('accuracy_{}.csv'.format(self.feature_names[self.feature]), 'w') as file:
