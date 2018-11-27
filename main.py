@@ -247,12 +247,16 @@ class Pollution:
             file.write('Date Local, NO2_AQI, O3_AQI, SO2_AQI, CO_AQI, Predicted\n')
             for index, row in enumerate(all_dates):
                 if index == all_dates.shape[0] - 1:
-                    file.write("{}, {}, {}, {}, {}, 1".format(row, y_pred_NO2[index], y_pred_O3[index], y_pred_SO2[index], y_pred_CO[index]))
+                    file.write("{}, {}, {}, {}, {}, 1".format(row, int(y_pred_NO2[index]), int(y_pred_O3[index]), int(y_pred_SO2[index]), int(y_pred_CO[index])))
                 else:
-                    if index > (all_dates.shape[0] - self.num_days_predict):
-                        file.write("{}, {}, {}, {}, {}, 1\n".format(row, y_pred_NO2[index], y_pred_O3[index], y_pred_SO2[index], y_pred_CO[index]))
+                    if index > (all_dates.shape[0] - self.num_days_predict) - 1:
+                        file.write("{}, {}, {}, {}, {}, 1\n".format(row, int(y_pred_NO2[index]), int(y_pred_O3[index]), int(y_pred_SO2[index]), int(y_pred_CO[index])))
                     else:
-                        file.write("{}, {}, {}, {}, {}, 0\n".format(row, y_pred_NO2[index], y_pred_O3[index], y_pred_SO2[index], y_pred_CO[index]))
+                        file.write("{}, {}, {}, {}, {}, 0\n".format(row,
+                                                                    self.county_data[self.county].iloc[index]['NO2_AQI'],
+                                                                    self.county_data[self.county].iloc[index]['O3_AQI'],
+                                                                    self.county_data[self.county].iloc[index]['SO2_AQI'],
+                                                                    self.county_data[self.county].iloc[index]['CO_AQI']))
 
     def save_forecast_accuracy(self, accuracy_info):
         with open('accuracy_{}.csv'.format(self.feature_names[self.feature]), 'w') as file:
