@@ -10,7 +10,7 @@ from sklearn.model_selection import GridSearchCV
 import multiprocessing
 import os
 from tqdm import tqdm
-import datetime
+from sklearn.linear_model import LinearRegression
 
 ''' References: 
     (1) https://stackoverflow.com/questions/24588437/convert-date-to-float-for-linear-regression-on-pandas-data-frame/24590666,
@@ -110,7 +110,7 @@ class Pollution:
         print('Best MSE: {}'.format(-1 * clf.best_score_))
         print("Best gamma: {}, alpha: {}".format(best_gamma, best_alpha))
 
-    def predict(self):
+    def predict(self, baseline=False):
         data = self.county_data[self.county].values
         feature = data[:, self.feature]
 
@@ -127,7 +127,10 @@ class Pollution:
         x_test = days[train_index:]
         y_test = feature[train_index:]
 
-        model = KernelRidge(alpha=self.best_alpha, kernel='rbf', gamma=self.best_gamma)
+        if baseline:
+            model = LinearRegression()
+        else:
+            model = KernelRidge(alpha=self.best_alpha, kernel='rbf', gamma=self.best_gamma)
         model.fit(x_train, y_train)
 
         y_train_pred = model.predict(x_train)
@@ -292,7 +295,7 @@ class Pollution:
                 self.feature = f
                 self.county = c
 
-                y_train_pred, y_test_pred, y_unseen_pred, mse_train, mse_test = poll.predict()
+                y_train_pred, y_test_pred, y_unseen_pred, mse_train, mse_test = poll.predict(baseline=True)
                 accuracy_info[c] = [mse_train, mse_test]
 
             self.save_forecast_accuracy(accuracy_info)
@@ -356,6 +359,8 @@ class Pollution:
                 self.county_data_all[county_code] = combined
 
             else:
+                for row in self.county_data[county_code]:
+                    print("hi")
                 self.county_data_all[county_code] = self.county_data[county_code]
 
         # create county_daily_predictions data
@@ -385,13 +390,13 @@ if __name__ == '__main__':
     num_days_predict = 365
 
     poll = Pollution(county, feature, num_days_predict)
-    poll.process_data()
-    poll.get_county_info()
+    # poll.process_data()
+    # poll.get_county_info()
 
     #poll.process_data(monthy_data=monthly_data)
     #poll.save_counties()
 
-    #poll.create_accuracy_files(num_counties=5)
+    poll.create_accuracy_files(num_counties=5)
     #poll.create_all_forecasts()
 
     # poll.load_county(county)
